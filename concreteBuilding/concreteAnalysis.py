@@ -30,20 +30,21 @@ beta1 = lambda fc: 0.85 if fc<=28 else max(0.85-(0.05*(fc-28)/7), 0.65)
 # def setAsPercent(self, percent: float) -> None:
 #     self.setAs(np.ones_like(self.rebarCoords) *
 #                (self.section.area * (percent/100) / len(self.rebarCoords)))
-# def rotateSection(self, angle: float) -> Polygon:
-#     rsection = rotate(self.section, angle, origin=Point([0, 0]))
-#     return rsection
-# def rotateRebarCoords(self, angle: float) -> np.ndarray:
-#     rBarCoords = np.array([])
-#     for p in self.rebarCoords:
-#         rBarCoords = np.append(rBarCoords, rotate(
-#             p, angle, origin=Point([0, 0])))
-#     return rBarCoords
-# def NeutralAxis(self, c: float, angle: float) -> LineString:
-#     rSection = self.rotateSection(angle)
-#     minx, _, maxx, maxy = rSection.bounds
-#     line = LineString([(maxx+10, maxy-c), (minx-10, maxy-c)])
-#     return line
+
+def rotateSection(section: ListOfPoints, angle: float) -> ListOfPoints:
+    rsection = rotate(Polygon(section), angle, origin=Point([0, 0]))
+    return rsection
+
+def rotateRebarCoords(coords: ListOfPoints, angle: float) -> ListOfPoints:
+    points = [rotate(Point(coord), angle, origin=Point([0, 0])) for coord in coords]
+    return [(point.xy[0], point.xy[1]) for point in points]
+
+def NeutralAxis(section: ListOfPoints, c: float, angle: float) -> ListOfPoints:
+    rSection = rotateSection(section, angle)
+    minx, _, maxx, maxy = rSection.bounds
+    line = LineString([(maxx+10, maxy-c), (minx-10, maxy-c)])
+    return list(line.coords)
+
 # def NeutralRegion(self, c: float, angle: float) -> Polygon:
 #     rSection = self.rotateSection(angle)
 #     minx, _, maxx, maxy = rSection.bounds
@@ -54,6 +55,7 @@ beta1 = lambda fc: 0.85 if fc<=28 else max(0.85-(0.05*(fc-28)/7), 0.65)
 #     NR = [poly for poly in polygonize(
 #         unioned) if poly.representative_point().within(topArea)]
 #     return NR[0]
+
 # def MaxPressurePoint(self, c: float, angle: float) -> np.float32:
 #     NL = self.NeutralAxis(c, angle)
 #     NR = self.NeutralRegion(c, angle)
