@@ -6,7 +6,7 @@ from math import sin, cos, pi
 from shapely import Point, Polygon
 from shapely.affinity import translate
 
-from ..materials import ConcreteMat, RebarMat, AIII, AII, C25
+from pyCivilDesign.materials import ConcreteMat, RebarMat, AIII, AII, C25
 
 
 class ListOfPoints(List[Tuple[float, float]]):
