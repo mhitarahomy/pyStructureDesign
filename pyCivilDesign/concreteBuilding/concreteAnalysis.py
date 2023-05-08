@@ -10,7 +10,7 @@ from shapely.ops import polygonize
 
 from scipy.optimize import least_squares, minimize
 
-from ..sections.concreteSections import ListOfPoints
+from pyCivilDesign.sections.section import ListOfPoints
 
 
 @dataclass
