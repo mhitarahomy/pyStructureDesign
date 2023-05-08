@@ -32,62 +32,65 @@ beta1 = lambda fc: 0.85 if fc<=28 else max(0.85-(0.05*(fc-28)/7), 0.65)
 #                (self.section.area * (percent/100) / len(self.rebarCoords)))
 
 def rotateSection(section: ListOfPoints, angle: float) -> ListOfPoints:
-    rsection = rotate(Polygon(section), angle, origin=Point([0, 0]))
-    return rsection
+    rsection: Polygon = rotate(Polygon(section), angle, origin=Point([0, 0]))
+    return ListOfPoints(rsection.exterior.coords)
 
 def rotateRebarCoords(coords: ListOfPoints, angle: float) -> ListOfPoints:
-    points = [rotate(Point(coord), angle, origin=Point([0, 0])) for coord in coords]
-    return [(point.xy[0], point.xy[1]) for point in points]
+    points: List[Point] = [rotate(Point(coord), angle, origin=Point([0, 0])) for coord in coords]
+    return ListOfPoints([(point.x, point.y) for point in points])
 
 def NeutralAxis(section: ListOfPoints, c: float, angle: float) -> ListOfPoints:
-    rSection = rotateSection(section, angle)
+    rSection: Polygon = Polygon(rotateSection(section, angle))
     minx, _, maxx, maxy = rSection.bounds
-    line = LineString([(maxx+10, maxy-c), (minx-10, maxy-c)])
-    return list(line.coords)
+    line: LineString = LineString([(maxx+10, maxy-c), (minx-10, maxy-c)])
+    return ListOfPoints(line.coords)
 
-# def NeutralRegion(self, c: float, angle: float) -> Polygon:
-#     rSection = self.rotateSection(angle)
-#     minx, _, maxx, maxy = rSection.bounds
-#     topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-c),
-#                       (minx-10, maxy-c), (minx-10, maxy)])
-#     NL = self.NeutralAxis(c, angle)
-#     unioned = rSection.boundary.union(NL)
-#     NR = [poly for poly in polygonize(
-#         unioned) if poly.representative_point().within(topArea)]
-#     return NR[0]
+def NeutralRegion(section: ListOfPoints, c: float, angle: float) -> ListOfPoints:
+    rSection = Polygon(rotateSection(section, angle))
+    minx, _, maxx, maxy = rSection.bounds
+    topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-c),
+                      (minx-10, maxy-c), (minx-10, maxy)])
+    NL: LineString = LineString(NeutralAxis(section, c, angle))
+    unioned = rSection.boundary.union(NL)
+    NR: List[Polygon] = [poly for poly in polygonize(unioned) if poly.representative_point().within(topArea)]
+    return ListOfPoints(NR[0].exterior.coords)
 
-# def MaxPressurePoint(self, c: float, angle: float) -> np.float32:
-#     NL = self.NeutralAxis(c, angle)
-#     NR = self.NeutralRegion(c, angle)
-#     return np.max([NL.distance(Point(p)) for p in list(NR.exterior.coords)])
-# def PressureAxis(self, c: float, angle: float) -> LineString:
-#     MaxPrPoint = self.MaxPressurePoint(c, angle)
-#     NL = self.NeutralAxis(c, angle)
-#     return NL.parallel_offset(distance=MaxPrPoint*(1-self.beta1), side="right")
-# def PressureRegion(self, c: float, angle: float) -> Polygon:
-#     rSection = self.rotateSection(angle)
-#     minx, _, maxx, maxy = rSection.bounds
-#     topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-(0.85*c)),
-#                       (minx-10, maxy-(0.85*c)), (minx-10, maxy)])
-#     PL = self.PressureAxis(c, angle)
-#     unioned = rSection.boundary.union(PL)
-#     PR = [poly for poly in polygonize(
-#         unioned) if poly.representative_point().within(topArea)]
-#     return PR[0]
-# def es(self, c: float, angle: float) -> npt.NDArray[np.float32]:
-#     rRebarCoords = self.rotateRebarCoords(angle)
-#     NL = self.NeutralAxis(c, angle)
-#     MaxPrPoint = self.MaxPressurePoint(c, angle)
-#     NR = self.NeutralRegion(c, angle)
-#     esSign = np.array([1 if NR.contains(point) else -
-#                       1 for point in rRebarCoords])
-#     return np.array(((esSign * NL.distance(rRebarCoords))/MaxPrPoint)*self.ecu)
-# def ec(self, c: float, angle: float, point: Point) -> npt.NDArray[np.float32]:
-#     NL = self.NeutralAxis(c, angle)
-#     MaxPrPoint = self.MaxPressurePoint(c, angle)
-#     NR = self.NeutralRegion(c, angle)
-#     ecSign = 1 if NR.contains(point) else -1
-#     return ((ecSign * NL.distance(point))/MaxPrPoint)*self.ecu
+def MaxPressurePoint(section: ListOfPoints, c: float, angle: float) -> float:
+    NL: LineString = LineString(NeutralAxis(section, c, angle))
+    NR: Polygon = Polygon(NeutralRegion(section, c, angle))
+    return max([NL.distance(Point(p)) for p in list(NR.exterior.coords)])
+
+def PressureAxis(section: ListOfPoints, fc:float, c: float, angle: float) -> ListOfPoints:
+    MaxPrPoint: float = MaxPressurePoint(section, c, angle)
+    NL: LineString = LineString(NeutralAxis(section, c, angle))
+    PL: LineString = NL.parallel_offset(distance=MaxPrPoint*(1-beta1(fc)), side="right")
+    return ListOfPoints(PL.coords)
+
+def PressureRegion(section: ListOfPoints, fc:float, c: float, angle: float) -> ListOfPoints:
+    rSection: Polygon = Polygon(rotateSection(section, angle))
+    minx, _, maxx, maxy = rSection.bounds
+    topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-(0.85*c)),
+                      (minx-10, maxy-(0.85*c)), (minx-10, maxy)])
+    PL: LineString = LineString(PressureAxis(section, fc, c, angle))
+    unioned = rSection.boundary.union(PL)
+    PR = [poly for poly in polygonize(unioned) if poly.representative_point().within(topArea)]
+    return ListOfPoints(PR[0].exterior.coords)
+
+def es(section: ListOfPoints, coords:ListOfPoints, ecu: float, c: float, angle: float) -> List[float]:
+    rCoords: ListOfPoints = rotateRebarCoords(coords, angle)
+    NL: LineString = LineString(NeutralAxis(section, c, angle))
+    MaxPrPoint: float = MaxPressurePoint(section, c, angle)
+    NR: Polygon = Polygon(NeutralRegion(section, c, angle))
+    esSign = [1 if NR.contains(Point(point)) else -1 for point in rCoords]
+    return [((esSign[i]*NL.distance(rCoords[i]))/MaxPrPoint)*ecu for i in range(len(rCoords))]
+
+def ec(section: ListOfPoints, ecu: float, c: float, angle: float, point: Tuple[float, float]) -> float:
+    NL: LineString = LineString(NeutralAxis(section, c, angle))
+    MaxPrPoint: float = MaxPressurePoint(section, c, angle)
+    NR: Polygon = Polygon(NeutralRegion(section, c, angle))
+    ecSign = 1 if NR.contains(Point(point)) else -1
+    return ((ecSign * NL.distance(Point(point)))/MaxPrPoint)*ecu
+
 # def fs(self, c: float, angle: float) -> npt.NDArray[np.float32]:
 #     _es = self.es(c, angle)
 #     _fs = np.array([min(abs(e)*self.Es, self.fy) for e in _es], dtype=np.float32)
