@@ -6,7 +6,7 @@ from math import pi, ceil
 from shapely import Polygon, LineString, Point
 from shapely.affinity import rotate
 
-from pyCivilDesign.sections.concreteSections import ListOfPoints
+from pyCivilDesign.sections.section import ListOfPoints
 
 # region Rebar Sections
 @dataclass
