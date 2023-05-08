@@ -1,7 +1,17 @@
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, List
+from pyCivilDesign.sections.section import ListOfPoints
+from pyCivilDesign.sections.concreteSections import ConcreteSct
 
-from pyCivilDesign.concreteBuilding.concreteAnalysis import DesignData
+
+@dataclass
+class DesignData():
+    section: ListOfPoints
+    fy: float
+    fc: float
+    Coords: ListOfPoints
+    As: List[float]
+    Es: float
 
 
 beta1: Callable[[DesignData], float] = lambda data: 0.85 if data.fc<=28 else max(0.85-(0.05*(data.fc-28)/7), 0.65)
@@ -22,3 +32,6 @@ class Assumptions():
     ecu = 0.003
 
 defaultAssumption = Assumptions()
+
+def setDesignDataFromSection(sct: ConcreteSct) -> DesignData:
+    return DesignData(sct.section, sct.lBarMat.fy, sct.concMat.fc, sct.Coords, sct.As, sct.lBarMat.Es)
