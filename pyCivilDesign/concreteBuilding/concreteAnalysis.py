@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import Tuple, List
+from typing import Protocol, Tuple, List, Callable
+from math import copysign
 
 import numpy as np
 import numpy.typing as npt
@@ -11,19 +12,35 @@ from shapely.ops import polygonize
 from scipy.optimize import least_squares, minimize
 
 from pyCivilDesign.sections.section import ListOfPoints
+from pyCivilDesign.sections.rebarSections import RebarCoords
 
 
-@dataclass
-class PMMDesignData():
-    section: Polygon
+beta1: Callable[[float], float] = lambda fc: 0.85 if fc<=28 else max(0.85-(0.05*(fc-28)/7), 0.65)
+def phif(fy: float, Es: float, esMin: float) -> float:
+    ety = fy / Es
+    et = abs(esMin)
+    return 0.65 if et <= ety else 0.65+0.25*((et-ety)/0.003) if ety < et < ety+0.003 else 0.9
+
+
+@dataclass()
+class Assumptions():
+    beta1: Callable[[float], float] = beta1
+    phif: Callable[[float, float, float], float] = phif
+    phis: float = 0.9
+    phia: float = 0.65
+    phit: float = 0.6
+    ecu = 0.003
+
+
+class DesignData(Protocol):
+    section: ListOfPoints
     fy: float
-    fc: float   
-    Es: float = field(default=2e5) 
-    ecu: float = field(default=0.003)
-
-
-beta1 = lambda fc: 0.85 if fc<=28 else max(0.85-(0.05*(fc-28)/7), 0.65)
-
+    fc: float
+    Coords: ListOfPoints
+    As: List[float]
+    Es: float
+    
+    
 # def setAs(self, _As: npt.NDArray[np.float32]) -> None:
 #     self.As = _As
 
@@ -31,99 +48,106 @@ beta1 = lambda fc: 0.85 if fc<=28 else max(0.85-(0.05*(fc-28)/7), 0.65)
 #     self.setAs(np.ones_like(self.rebarCoords) *
 #                (self.section.area * (percent/100) / len(self.rebarCoords)))
 
-def rotateSection(section: ListOfPoints, angle: float) -> ListOfPoints:
-    rsection: Polygon = rotate(Polygon(section), angle, origin=Point([0, 0]))
+def rotateSection(data: DesignData, angle: float) -> ListOfPoints:
+    rsection: Polygon = rotate(Polygon(data.section), angle, origin=Point([0, 0]))
     return ListOfPoints(rsection.exterior.coords)
 
-def rotateRebarCoords(coords: ListOfPoints, angle: float) -> ListOfPoints:
-    points: List[Point] = [rotate(Point(coord), angle, origin=Point([0, 0])) for coord in coords]
+def rotateRebarCoords(data: DesignData, angle: float) -> ListOfPoints:
+    points: List[Point] = [rotate(Point(coord), angle, origin=Point([0, 0])) for coord in data.Coords]
     return ListOfPoints([(point.x, point.y) for point in points])
 
-def NeutralAxis(section: ListOfPoints, c: float, angle: float) -> ListOfPoints:
-    rSection: Polygon = Polygon(rotateSection(section, angle))
+def NeutralAxis(data: DesignData, c: float, angle: float) -> ListOfPoints:
+    rSection: Polygon = Polygon(rotateSection(data, angle))
     minx, _, maxx, maxy = rSection.bounds
     line: LineString = LineString([(maxx+10, maxy-c), (minx-10, maxy-c)])
     return ListOfPoints(line.coords)
 
-def NeutralRegion(section: ListOfPoints, c: float, angle: float) -> ListOfPoints:
-    rSection = Polygon(rotateSection(section, angle))
+def NeutralRegion(data: DesignData, c: float, angle: float) -> ListOfPoints:
+    rSection = Polygon(rotateSection(data, angle))
     minx, _, maxx, maxy = rSection.bounds
     topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-c),
                       (minx-10, maxy-c), (minx-10, maxy)])
-    NL: LineString = LineString(NeutralAxis(section, c, angle))
+    NL: LineString = LineString(NeutralAxis(data, c, angle))
     unioned = rSection.boundary.union(NL)
     NR: List[Polygon] = [poly for poly in polygonize(unioned) if poly.representative_point().within(topArea)]
     return ListOfPoints(NR[0].exterior.coords)
 
-def MaxPressurePoint(section: ListOfPoints, c: float, angle: float) -> float:
-    NL: LineString = LineString(NeutralAxis(section, c, angle))
-    NR: Polygon = Polygon(NeutralRegion(section, c, angle))
+def MaxPressurePoint(data: DesignData, c: float, angle: float) -> float:
+    NL: LineString = LineString(NeutralAxis(data, c, angle))
+    NR: Polygon = Polygon(NeutralRegion(data, c, angle))
     return max([NL.distance(Point(p)) for p in list(NR.exterior.coords)])
 
-def PressureAxis(section: ListOfPoints, fc:float, c: float, angle: float) -> ListOfPoints:
-    MaxPrPoint: float = MaxPressurePoint(section, c, angle)
-    NL: LineString = LineString(NeutralAxis(section, c, angle))
-    PL: LineString = NL.parallel_offset(distance=MaxPrPoint*(1-beta1(fc)), side="right")
+def PressureAxis(data: DesignData, assump:Assumptions, c: float, angle: float) -> ListOfPoints:
+    MaxPrPoint: float = MaxPressurePoint(data, c, angle)
+    NL: LineString = LineString(NeutralAxis(data, c, angle))
+    PL: LineString = NL.parallel_offset(distance=MaxPrPoint*(1-assump.beta1(data.fc)), side="right")
     return ListOfPoints(PL.coords)
 
-def PressureRegion(section: ListOfPoints, fc:float, c: float, angle: float) -> ListOfPoints:
-    rSection: Polygon = Polygon(rotateSection(section, angle))
+def PressureRegion(data: DesignData, assump:Assumptions, c: float, angle: float) -> ListOfPoints:
+    rSection: Polygon = Polygon(rotateSection(data, angle))
     minx, _, maxx, maxy = rSection.bounds
     topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-(0.85*c)),
                       (minx-10, maxy-(0.85*c)), (minx-10, maxy)])
-    PL: LineString = LineString(PressureAxis(section, fc, c, angle))
+    PL: LineString = LineString(PressureAxis(data, assump, c, angle))
     unioned = rSection.boundary.union(PL)
     PR = [poly for poly in polygonize(unioned) if poly.representative_point().within(topArea)]
     return ListOfPoints(PR[0].exterior.coords)
 
-def es(section: ListOfPoints, coords:ListOfPoints, ecu: float, c: float, angle: float) -> List[float]:
-    rCoords: ListOfPoints = rotateRebarCoords(coords, angle)
-    NL: LineString = LineString(NeutralAxis(section, c, angle))
-    MaxPrPoint: float = MaxPressurePoint(section, c, angle)
-    NR: Polygon = Polygon(NeutralRegion(section, c, angle))
+def es(data: DesignData, assump:Assumptions, c: float, angle: float) -> List[float]:
+    rCoords: ListOfPoints = rotateRebarCoords(data, angle)
+    NL: LineString = LineString(NeutralAxis(data, c, angle))
+    MaxPrPoint: float = MaxPressurePoint(data, c, angle)
+    NR: Polygon = Polygon(NeutralRegion(data, c, angle))
     esSign = [1 if NR.contains(Point(point)) else -1 for point in rCoords]
-    return [((esSign[i]*NL.distance(rCoords[i]))/MaxPrPoint)*ecu for i in range(len(rCoords))]
+    return [((esSign[i]*NL.distance(rCoords[i]))/MaxPrPoint)*assump.ecu for i in range(len(rCoords))]
 
-def ec(section: ListOfPoints, ecu: float, c: float, angle: float, point: Tuple[float, float]) -> float:
-    NL: LineString = LineString(NeutralAxis(section, c, angle))
-    MaxPrPoint: float = MaxPressurePoint(section, c, angle)
-    NR: Polygon = Polygon(NeutralRegion(section, c, angle))
+def ec(data: DesignData, assump:Assumptions, c: float, angle: float, point: Tuple[float, float]) -> float:
+    NL: LineString = LineString(NeutralAxis(data, c, angle))
+    MaxPrPoint: float = MaxPressurePoint(data, c, angle)
+    NR: Polygon = Polygon(NeutralRegion(data, c, angle))
     ecSign = 1 if NR.contains(Point(point)) else -1
-    return ((ecSign * NL.distance(Point(point)))/MaxPrPoint)*ecu
+    return ((ecSign * NL.distance(Point(point)))/MaxPrPoint)*assump.ecu
 
-# def fs(self, c: float, angle: float) -> npt.NDArray[np.float32]:
-#     _es = self.es(c, angle)
-#     _fs = np.array([min(abs(e)*self.Es, self.fy) for e in _es], dtype=np.float32)
-#     # return np.where(abs(_es)*self.Es < self.fy, abs(_es)*self.Es, self.fy)*np.sign(_es)
-#     return _fs * np.sign(_es)
-# def Fs(self, c: float, angle: float) -> npt.NDArray[np.float32]:
-#     _fs = self.fs(c, angle)
-#     _Fs = np.array([self.As*f if self.As*f <= 0 else self.As*(f-0.85*self.fc) for f in _fs], dtype=np.float32)
-#     # return np.where(self.As*_fs <= 0, self.As*_fs, self.As*(_fs-0.85*self.fc))
-#     return _Fs
-# def Cc(self, c: float, angle: float) -> np.float32:
-#     _Cc = 0.85 * self.fc * self.PressureRegion(c, angle).area
-#     return _Cc
-# def Fsz(self, c: float, angle: float) -> Tuple[np.float32, np.float32]:
-#     return np.sum(self.Fs(c, angle) * self.rebarXcoords), np.sum(self.Fs(c, angle) * self.rebarYcoords)
+def fs(data: DesignData, assump:Assumptions, c: float, angle: float) -> List[float]:
+    _es = es(data, assump, c, angle)
+    _fs = [min(abs(e)*data.Es, data.fy) for e in _es]
+    return [copysign(_fs[i], _es[i]) for i in range(len(_fs))]
+
+def Fs(data: DesignData, assump:Assumptions, c: float, angle: float) -> List[float]:
+    _fs = fs(data, assump, c, angle)
+    _Fs =[data.As[i]*_fs[i] if data.As[i]*_fs[i] <= 0 else data.As[i]*(_fs[i]-0.85*data.fc) for i in range(len(_fs))]
+    return _Fs
+
+def Cc(data: DesignData, assump:Assumptions, c: float, angle: float) -> float:
+    _Cc = 0.85 * data.fc * Polygon(PressureRegion(data, assump, c, angle)).area
+    return _Cc
+
+def Fsz(data: DesignData, assump:Assumptions, c: float, angle: float) -> Tuple[float, float]:
+    _Fs = Fs(data, assump, c, angle)
+    rebarXcoords = [p[0] for p in data.Coords]
+    rebarYcoords = [p[1] for p in data.Coords]
+    return sum([_Fs[i]*rebarXcoords[i] for i in range(len(_Fs))]), sum([_Fs[i]*rebarYcoords[i] for i in range(len(_Fs))])
+
 # def phi(self, c: float, angle: float) -> np.float32:
 #     ety = self.fy / self.Es
 #     et = abs(np.min(self.es(c, angle)))
 #     return np.float32(0.65) if et <= ety else 0.65+0.25*((et-ety)/0.003) if ety < et < ety+0.003 else np.float32(0.9)
-# def M(self, c: float, angle: float, IsPhi: bool = True) -> Tuple[np.float32, np.float32, np.float32]:
-#     signX = 1 if (0 <= angle <= 90) or (270 <= angle <= 360) else -1
-#     signY = 1 if (0 <= angle <= 180) else -1
-#     _Fszx, _Fszy = self.Fsz(c, angle)
-#     _Cc = self.Cc(c, angle)
-#     _zcy = abs(rotate(self.PressureRegion(c, angle), -
-#                angle, Point([0, 0])).centroid.y)
-#     _zcx = abs(rotate(self.PressureRegion(c, angle), -
-#                angle, Point([0, 0])).centroid.x)
-#     _phi = self.phi(c, angle)
-#     _Mx = _phi*(_Cc*_zcy + abs(_Fszy)) if IsPhi else _Cc*_zcy + abs(_Fszy)
-#     _My = _phi*(_Cc*_zcx + abs(_Fszx)) if IsPhi else _Cc*_zcx + abs(_Fszx)
-#     _M = pow((_Mx)**2+(_My)**2, 0.5)
-#     return _M, signX*_Mx, signY*_My
+
+def M(data: DesignData, assump:Assumptions, c: float, angle: float, IsPhi: bool = True) -> Tuple[float, float, float]:
+    signX = 1 if (0 <= angle <= 90) or (270 <= angle <= 360) else -1
+    signY = 1 if (0 <= angle <= 180) else -1
+    _Fszx, _Fszy = Fsz(data, assump, c, angle)
+    _Cc = Cc(data, assump, c, angle)
+    rPr = rotate(Polygon(PressureRegion(data, assump, c, angle)), -angle, Point([0, 0]))
+    _zcy = abs(rPr.centroid.y)
+    _zcx = abs(rPr.centroid.x)
+    _es = es(data, assump, c, angle)
+    _phi = assump.phif(data.fy, data.Es, min(_es))
+    _Mx = _phi*(_Cc*_zcy + abs(_Fszy)) if IsPhi else _Cc*_zcy + abs(_Fszy)
+    _My = _phi*(_Cc*_zcx + abs(_Fszx)) if IsPhi else _Cc*_zcx + abs(_Fszx)
+    _M = pow((_Mx)**2+(_My)**2, 0.5)
+    return _M, signX*_Mx, signY*_My
+
 # def P(self, c: float, angle: float, IsPhi: bool = True) -> np.float32:
 #     _Fs = self.Fs(c, angle)
 #     _Cc = self.Cc(c, angle)
