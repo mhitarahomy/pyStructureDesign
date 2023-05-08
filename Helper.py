@@ -1,5 +1,11 @@
-from shapely import Point, Polygon
-from pyCivilDesign.sections.section import ListOfPoints
-import math
+from pyCivilDesign.sections.concreteSections import RectConcreteSct
+from pyCivilDesign.concreteBuilding.designAssumptions import setDesignDataFromSection
+import pyCivilDesign.concreteBuilding.concreteAnalysis as Canalysis 
+import pyCivilDesign.sections.rebarSections as Rsct
 
-a = 5
+C40x60 = RectConcreteSct(b=400, h=600)
+C40x60.rebarCoords = Rsct.RectSectRebars(C40x60.section, 5, 6, Rsct.d20, 50)
+# print(C40x60.rebarCoords)
+data = setDesignDataFromSection(C40x60)
+
+print(Canalysis.P0(data))
