@@ -28,6 +28,14 @@ class ConcreteSct():
     def sectionCoords(self) -> Sct.ListOfPoints:
         return Sct.ListOfPoints(list(Polygon(self.section).exterior.coords))
     
+    @property
+    def Coords(self) -> Sct.ListOfPoints:
+        return Sct.ListOfPoints([rcoord.point for rcoord in self.rebarCoords])
+    
+    @property
+    def As(self) -> List[float]:
+        return [rcoord.rebar.Area for rcoord in self.rebarCoords]
+
 
 @dataclass()
 class RectConcreteSct(ConcreteSct):
