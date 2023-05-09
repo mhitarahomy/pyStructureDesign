@@ -2,25 +2,27 @@ from dataclasses import dataclass, field
 from typing import Protocol, Tuple, List, Callable
 from math import copysign, degrees, atan
 
+from numpy.typing import NDArray
+import numpy as np
+
 from shapely import Polygon, LineString, Point
 from shapely.affinity import rotate
 from shapely.ops import polygonize
 
 from scipy.optimize import least_squares, minimize
 
-from pyCivilDesign.sections.section import ListOfPoints
 from pyCivilDesign.concreteDesign.designAssumptions import Assumptions, defaultAssumption, DesignData
 
    
-def setAs(data: DesignData, As: List[float]) -> DesignData:
+def setAs(data: DesignData, As: NDArray[np.float32]) -> DesignData:
     return DesignData(data.section, data.fy, data.fc, data.Coords, As, data.Es)
 
 def setAsPercent(data: DesignData, percent: float) -> DesignData:
     totalAs = Polygon(data.section).area * (percent/100)
-    return setAs(data, [totalAs/ len(data.Coords) for i in range(len(data.As))])
+    return setAs(data, np.array([totalAs/ len(data.Coords) for i in range(len(data.As))]))
 
-def AsPercent(data: DesignData) -> float:
-    return (sum(data.As)/Polygon(data.section).area)*100
+def AsPercent(data: DesignData) -> np.float32:
+    return (np.sum(data.As)/Polygon(data.section).area)*100
 
 def onePercentData(data: DesignData) -> DesignData:
     return setAsPercent(data, 1)
@@ -28,13 +30,13 @@ def onePercentData(data: DesignData) -> DesignData:
 def eightPercentAnalysis(data: DesignData) -> DesignData:
     return setAsPercent(data, 8)
 
-def P0(data: DesignData):
+def P0(data: DesignData) -> np.float32:
     return 0.65 * (0.85 * data.fc * (Polygon(data.section).area-sum(data.As))+sum(data.As)*data.fy)
 
-def PnMax(data: DesignData):
+def PnMax(data: DesignData) -> np.float32:
     return 0.8 * P0(data)
 
-def PtMax(data: DesignData):
+def PtMax(data: DesignData) -> np.float32:
     return -0.9 * (sum(data.As) * data.fy)
 
 def Alpha(data: DesignData, Mx: float, My: float, assump:Assumptions=defaultAssumption) -> float:
