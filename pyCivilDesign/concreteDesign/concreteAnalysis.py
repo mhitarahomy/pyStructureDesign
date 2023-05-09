@@ -9,7 +9,7 @@ from shapely.ops import polygonize
 from scipy.optimize import least_squares, minimize
 
 from pyCivilDesign.sections.section import ListOfPoints
-from pyCivilDesign.concreteBuilding.designAssumptions import Assumptions, defaultAssumption, DesignData
+from pyCivilDesign.concreteDesign.designAssumptions import Assumptions, defaultAssumption, DesignData
 
    
 def setAs(data: DesignData, As: List[float]) -> DesignData:

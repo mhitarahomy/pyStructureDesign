@@ -1,6 +1,6 @@
 from pyCivilDesign.sections.concreteSections import RectConcreteSct
-from pyCivilDesign.concreteBuilding.designAssumptions import setDesignDataFromSection
-import pyCivilDesign.concreteBuilding.concreteAnalysis as Canalysis 
+from pyCivilDesign.concreteDesign.designAssumptions import setDesignDataFromSection
+import pyCivilDesign.concreteDesign.concreteAnalysis as Canalysis 
 import pyCivilDesign.sections.rebarSections as Rsct
 
 C40x60 = RectConcreteSct(b=400, h=600)
