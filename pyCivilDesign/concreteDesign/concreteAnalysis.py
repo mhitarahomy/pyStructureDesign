@@ -114,7 +114,7 @@ def es(data: DesignData, c: float, angle: float, assump:Assumptions=defaultAssum
     MaxPrPoint: float = MaxPressurePoint(data, c, angle)
     NR: Polygon = Polygon(NeutralRegion(data, c, angle))
     esSign = [1 if NR.contains(Point(point)) else -1 for point in rCoords]
-    return [((esSign[i]*NL.distance(rCoords[i]))/MaxPrPoint)*assump.ecu for i in range(len(rCoords))]
+    return [((esSign[i]*NL.distance(Point(rCoords[i])))/MaxPrPoint)*assump.ecu for i in range(len(rCoords))]
 
 def ec(data: DesignData, c: float, angle: float, point: Tuple[float, float], assump:Assumptions=defaultAssumption) -> float:
     NL: LineString = LineString(NeutralAxis(data, c, angle))
@@ -205,7 +205,7 @@ def OptimM(x, *args):
 def CalcPMRatio(data: DesignData, P: float, Mx: float, My: float, assump:Assumptions=defaultAssumption) -> float:
     angle = AngleFromForces(data, P, Mx, My, assump)
     M = pow(Mx**2 + My**2, 0.5)
-    _P = least_squares(OptimM, ((P0(data)+PtMax(data))/2), bounds=((PtMax), (P0)), args=(angle, M/P, data, assump)).x[0] if P != 0 else 1
+    _P = least_squares(OptimM, ((P0(data)+PtMax(data))/2), bounds=((PtMax(data)), (P0(data))), args=(angle, M/P, data, assump)).x[0] if P != 0 else 1
     _M = CalcMn(data, _P, angle, assump)[0]
     return P/_P if (P/_P) != 0 else M/_M
 
