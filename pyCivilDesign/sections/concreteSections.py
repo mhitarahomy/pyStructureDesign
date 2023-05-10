@@ -53,7 +53,30 @@ class RectConcreteSct(ConcreteSct):
         super().__setattr__(__name, __value)
         if __name=="b" or __name=="h":
             self.section =  Sct.RectangleSct(self.b, self.h)
-    
+
+
+@dataclass()
+class TShapeConcreteSct(ConcreteSct):
+    b: float = field(default=400)
+    h: float = field(default=600)
+    tf: float = field(default=100)
+    tw: float = field(default=100)
+    tf1: float|None = field(default=None)
+    tw1: float|None = field(default=None)
+    concMat: ConcreteMat = field(default_factory=C25def)
+    section: ListOfPoints = field(init=False)
+    sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.TShape)
+    lBarMat: RebarMat = field(default_factory=AIIIdef)
+    cBarMat: RebarMat = field(default_factory=AIIdef)
+    rebarCoords: List[RebarCoords] = field(default_factory=list)
+
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        super().__setattr__(__name, __value)
+        if __name=="b" or __name=="h" or __name=="tf" or \
+            __name=="tw" or __name=="tf1" or __name=="tw1":
+            self.section =  Sct.TShapeSct(self.b, self.h, self.tf, self.tw,
+                                          self.tf1, self.tw1)
+        
 
 def showSection(concSct: ConcreteSct) -> None:
     fig = plt.figure(dpi=90)
