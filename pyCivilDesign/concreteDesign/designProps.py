@@ -39,4 +39,5 @@ class Assumptions():
 defaultAssumption = Assumptions()
 
 def setDesignDataFromSection(sct: ConcreteSct) -> DesignData:
-    return DesignData(sct.section, sct.lBarMat.fy, sct.concMat.fc, sct.Coords, sct.As, sct.lBarMat.Es) # type: ignore
+    return DesignData(np.array(sct.section), np.float32(sct.lBarMat.fy), np.float32(sct.concMat.fc), 
+                      np.array(sct.Coords), np.array(sct.As), np.float32(sct.lBarMat.Es))

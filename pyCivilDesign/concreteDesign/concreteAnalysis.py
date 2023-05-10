@@ -151,7 +151,7 @@ def es(data: DesignData, c: float, angle: float,
     MaxPrPoint: np.float32 = MaxPressurePoint(data, c, angle)
     NR: Polygon = Polygon(NeutralRegion(data, c, angle))
     esSign = [1 if NR.contains(Point(point)) else -1 for point in rCoords]
-    return np.array([((esSign[i]*NL.distance(rCoords[i]))/MaxPrPoint)*assump.ecu \
+    return np.array([((esSign[i]*NL.distance(Point(rCoords[i])))/MaxPrPoint)*assump.ecu \
         for i in range(len(rCoords))])
 
 
@@ -185,7 +185,9 @@ def Cc(data: DesignData, c: float, angle: float, assump:Assumptions=defaultAssum
 def Fsz(data: DesignData, c: float, angle: float, 
         assump:Assumptions=defaultAssumption) -> Tuple[np.float32, np.float32]:
     _Fs = Fs(data, c, angle, assump)
-    return np.sum(_Fs*data.Coords[:,0]), np.sum(_Fs*data.Coords[:,1])
+    xCoords = data.Coords[:,0]
+    yCoords = data.Coords[:,1]
+    return np.sum(_Fs * xCoords), np.sum(_Fs * yCoords)
 
 
 def M(data: DesignData, c: float, angle: float, 
