@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any, List, Tuple
 from matplotlib import pyplot as plt
 
 from shapely import Polygon, Point
@@ -10,6 +10,7 @@ from pyCivilDesign.sections.rebarSections import RebarCoords
 import pyCivilDesign.sections.section as Sct 
 
 
+ListOfPoints = List[Tuple[float, float]]
 C25def = lambda: C25
 AIIdef = lambda: AII
 AIIIdef = lambda: AIII
@@ -17,7 +18,7 @@ AIIIdef = lambda: AIII
 
 @dataclass()
 class ConcreteSct():
-    section: Sct.ListOfPoints
+    section: ListOfPoints
     sectionType: Sct.SectionType
     concMat: ConcreteMat
     lBarMat: RebarMat 
@@ -25,12 +26,12 @@ class ConcreteSct():
     rebarCoords: List[RebarCoords] = field(default_factory=list)
     
     @property
-    def sectionCoords(self) -> Sct.ListOfPoints:
-        return Sct.ListOfPoints(list(Polygon(self.section).exterior.coords))
+    def sectionCoords(self) -> ListOfPoints:
+        return list(Polygon(self.section).exterior.coords)
     
     @property
-    def Coords(self) -> Sct.ListOfPoints:
-        return Sct.ListOfPoints([rcoord.point for rcoord in self.rebarCoords])
+    def Coords(self) -> ListOfPoints:
+        return [rcoord.point for rcoord in self.rebarCoords]
     
     @property
     def As(self) -> List[float]:
@@ -42,7 +43,7 @@ class RectConcreteSct(ConcreteSct):
     b: float = field(default=400)
     h: float = field(default=600)
     concMat: ConcreteMat = field(default_factory=C25def)
-    section: Sct.ListOfPoints = field(init=False)
+    section: ListOfPoints = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Rectangle)
     lBarMat: RebarMat = field(default_factory=AIIIdef)
     cBarMat: RebarMat = field(default_factory=AIIdef)

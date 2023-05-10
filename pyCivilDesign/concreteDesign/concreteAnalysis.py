@@ -1,6 +1,10 @@
 from dataclasses import dataclass, field
 from typing import Protocol, Tuple, List, Callable
 from math import copysign, degrees, atan
+from functools import partial
+
+from numpy.typing import NDArray
+import numpy as np
 
 from shapely import Polygon, LineString, Point
 from shapely.affinity import rotate
@@ -8,41 +12,50 @@ from shapely.ops import polygonize
 
 from scipy.optimize import least_squares, minimize
 
-from pyCivilDesign.sections.section import ListOfPoints
 from pyCivilDesign.concreteDesign.designAssumptions import Assumptions, defaultAssumption, DesignData
 
    
-def setAs(data: DesignData, As: List[float]) -> DesignData:
+def setAs(data: DesignData, As: NDArray[np.float32]) -> DesignData:
     return DesignData(data.section, data.fy, data.fc, data.Coords, As, data.Es)
+
 
 def setAsPercent(data: DesignData, percent: float) -> DesignData:
     totalAs = Polygon(data.section).area * (percent/100)
-    return setAs(data, [totalAs/ len(data.Coords) for i in range(len(data.As))])
+    return setAs(data, np.array([totalAs/ len(data.Coords) for i in range(len(data.As))]))
 
-def AsPercent(data: DesignData) -> float:
-    return (sum(data.As)/Polygon(data.section).area)*100
+
+def AsPercent(data: DesignData) -> np.float32:
+    return (np.sum(data.As)/Polygon(data.section).area)*100
+
 
 def onePercentData(data: DesignData) -> DesignData:
     return setAsPercent(data, 1)
 
+
 def eightPercentAnalysis(data: DesignData) -> DesignData:
     return setAsPercent(data, 8)
 
-def P0(data: DesignData):
-    return 0.65 * (0.85 * data.fc * (Polygon(data.section).area-sum(data.As))+sum(data.As)*data.fy)
 
-def PnMax(data: DesignData):
+def P0(data: DesignData) -> np.float32:
+    return 0.65 * (0.85 * data.fc * (Polygon(data.section).area - sum(data.As))\
+                   + sum(data.As)*data.fy)
+
+
+def PnMax(data: DesignData) -> np.float32:
     return 0.8 * P0(data)
 
-def PtMax(data: DesignData):
+
+def PtMax(data: DesignData) -> np.float32:
     return -0.9 * (sum(data.As) * data.fy)
 
-def Alpha(data: DesignData, Mx: float, My: float, assump:Assumptions=defaultAssumption) -> float:
-    alpha = degrees(atan(abs(My/Mx))) if Mx != 0 else 90
-    alpha = alpha if (Mx >= 0 and My >= 0) else 180-alpha if (Mx < 0 and My > 0) else 180 + \
-        alpha if (Mx < 0 and My < 0) else 360 - \
-        alpha if (Mx > 0 and My < 0) else alpha
-    return alpha
+
+def Alpha(data: DesignData, Mx: float, My: float,
+          assump:Assumptions=defaultAssumption) -> np.float32:
+    alpha = np.degrees(np.arctan(abs(My/Mx))) if Mx != 0 else 90
+    alpha = alpha if (Mx>=0 and My>=0) else 180-alpha if (Mx<0 and My>0) else \
+        180+ alpha if (Mx<0 and My<0) else 360-alpha if (Mx>0 and My<0) else alpha
+    return np.float32(alpha)
+
 
 def OptimAngle(x, *args):
     _angle = x[0]
@@ -52,73 +65,96 @@ def OptimAngle(x, *args):
     _assump = args[3]
     return abs(CalcMn(_data, _P, _angle, _assump)[3]-_alpha)
 
-def AngleFromForces(data: DesignData, P: float, Mx: float, My: float, assump: Assumptions=defaultAssumption) -> float:
+
+def AngleFromForces(data: DesignData, P: float, Mx: float, My: float,
+                    assump: Assumptions=defaultAssumption) -> np.float32:
     alpha = Alpha(data, Mx, My, assump)
-    lAngle = 0 if 0 <= alpha <= 90 else 90 if 90 < alpha <= 180 else 180 if 180 < alpha <= 270 else 270
-    uAngle = 90 if 0 <= alpha <= 90 else 180 if 90 < alpha <= 180 else 270 if 180 < alpha <= 270 else 360
-    return least_squares(OptimAngle, (alpha), bounds=((lAngle), (uAngle)), args=(P, alpha, data, assump)).x[0]
+    lAngle = 0 if 0<=alpha<=90 else 90 if 90<alpha<=180 else\
+         180 if 180<alpha<=270 else 270
+    uAngle = 90 if 0<=alpha<=90 else 180 if 90<alpha<=180 else\
+         270 if 180<alpha<=270 else 360
+    output = least_squares(OptimAngle, (alpha), bounds=((lAngle), (uAngle)),
+                           args=(P, alpha, data, assump))
+    return output.x[0]
 
-def AngleFromAlpha(data:DesignData, P:float, alpha:float, assump:Assumptions=defaultAssumption) -> float:
-    lAngle = 0 if 0 <= alpha <= 90 else 90 if 90 < alpha <= 180 else 180 if 180 < alpha <= 270 else 270
-    uAngle = 90 if 0 <= alpha <= 90 else 180 if 90 < alpha <= 180 else 270 if 180 < alpha <= 270 else 360
-    return least_squares(OptimAngle, (alpha), bounds=((lAngle), (uAngle)), args=(P, alpha, data, assump)).x[0]
 
-def rotateSection(data: DesignData, angle: float) -> ListOfPoints:
+def AngleFromAlpha(data:DesignData, P:float, alpha:float,
+                   assump:Assumptions=defaultAssumption) -> np.float32:
+    lAngle = 0 if 0<=alpha<=90 else 90 if 90<alpha<=180 else\
+         180 if 180<alpha<=270 else 270
+    uAngle = 90 if 0<=alpha<=90 else 180 if 90<alpha<= 180 else\
+         270 if 180<alpha<=270 else 360
+    output = least_squares(OptimAngle, (alpha), bounds=((lAngle), (uAngle)),
+                           args=(P, alpha, data, assump))
+    return output.x[0]
+
+
+def rotateSection(data: DesignData, angle: float) -> NDArray[np.float32]:
     rsection: Polygon = rotate(Polygon(data.section), angle, origin=Point([0, 0]))
-    return ListOfPoints(rsection.exterior.coords)
+    return np.array(rsection.exterior.coords)
 
-def rotateRebarCoords(data: DesignData, angle: float) -> ListOfPoints:
-    points: List[Point] = [rotate(Point(coord), angle, origin=Point([0, 0])) for coord in data.Coords]
-    return ListOfPoints([(point.x, point.y) for point in points])
 
-def NeutralAxis(data: DesignData, c: float, angle: float) -> ListOfPoints:
+def rotateRebarCoords(data: DesignData, angle: float) -> NDArray[np.float32]:
+    points: List[Point] = [rotate(Point(coord), angle, origin=Point([0, 0])) \
+                           for coord in data.Coords]
+    return np.array([(point.x, point.y) for point in points])
+
+
+def NeutralAxis(data: DesignData, c: float, angle: float) -> NDArray[np.float32]:
     rSection: Polygon = Polygon(rotateSection(data, angle))
     minx, _, maxx, maxy = rSection.bounds
     line: LineString = LineString([(maxx+10, maxy-c), (minx-10, maxy-c)])
-    return ListOfPoints(line.coords)
+    return np.array(line.coords)
 
-def NeutralRegion(data: DesignData, c: float, angle: float) -> ListOfPoints:
+
+def NeutralRegion(data: DesignData, c: float, angle: float) -> NDArray[np.float32]:
     rSection = Polygon(rotateSection(data, angle))
     minx, _, maxx, maxy = rSection.bounds
     topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-c),
                       (minx-10, maxy-c), (minx-10, maxy)])
     NL: LineString = LineString(NeutralAxis(data, c, angle))
     unioned = rSection.boundary.union(NL)
-    NR: List[Polygon] = [poly for poly in polygonize(unioned) if poly.representative_point().within(topArea)]
-    return ListOfPoints(NR[0].exterior.coords)
+    NR: List[Polygon] = [poly for poly in polygonize(unioned)\
+                         if poly.representative_point().within(topArea)]
+    return np.array(NR[0].exterior.coords)
 
-def MaxPressurePoint(data: DesignData, c: float, angle: float) -> float:
+def MaxPressurePoint(data: DesignData, c: float, angle: float) -> np.float32:
     NL: LineString = LineString(NeutralAxis(data, c, angle))
     NR: Polygon = Polygon(NeutralRegion(data, c, angle))
-    return max([NL.distance(Point(p)) for p in list(NR.exterior.coords)])
+    return np.max([NL.distance(Point(p)) for p in list(NR.exterior.coords)])
 
-def PressureAxis(data: DesignData, c: float, angle: float, assump:Assumptions=defaultAssumption) -> ListOfPoints:
-    MaxPrPoint: float = MaxPressurePoint(data, c, angle)
+def PressureAxis(data: DesignData, c: float, angle: float,
+                 assump:Assumptions=defaultAssumption) -> NDArray[np.float32]:
+    MaxPrPoint: np.float32 = MaxPressurePoint(data, c, angle)
     NL: LineString = LineString(NeutralAxis(data, c, angle))
-    PL: LineString = NL.parallel_offset(distance=MaxPrPoint*(1-assump.beta1(data)), side="right")
-    return ListOfPoints(PL.coords)
+    PL: LineString = NL.parallel_offset(distance=MaxPrPoint*(1-assump.beta1(data)),
+                                        side="right")
+    return np.array(PL.coords)
 
-def PressureRegion(data: DesignData, c: float, angle: float, assump:Assumptions=defaultAssumption) -> ListOfPoints:
+def PressureRegion(data: DesignData, c: float, angle: float,
+                   assump:Assumptions=defaultAssumption) -> NDArray[np.float32]:
     rSection: Polygon = Polygon(rotateSection(data, angle))
     minx, _, maxx, maxy = rSection.bounds
     topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-(0.85*c)),
                       (minx-10, maxy-(0.85*c)), (minx-10, maxy)])
     PL: LineString = LineString(PressureAxis(data, c, angle, assump))
     unioned = rSection.boundary.union(PL)
-    PR = [poly for poly in polygonize(unioned) if poly.representative_point().within(topArea)]
-    return ListOfPoints(PR[0].exterior.coords)
+    PR: List[Polygon] = [poly for poly in polygonize(unioned) if \
+          poly.representative_point().within(topArea)]
+    return np.array(PR[0].exterior.coords)
 
-def es(data: DesignData, c: float, angle: float, assump:Assumptions=defaultAssumption) -> List[float]:
-    rCoords: ListOfPoints = rotateRebarCoords(data, angle)
+def es(data: DesignData, c: float, angle: float, assump:Assumptions=defaultAssumption) -> NDArray[np.float32]:
+    rCoords: NDArray[np.float32] = rotateRebarCoords(data, angle)
     NL: LineString = LineString(NeutralAxis(data, c, angle))
-    MaxPrPoint: float = MaxPressurePoint(data, c, angle)
+    MaxPrPoint: np.float32 = MaxPressurePoint(data, c, angle)
     NR: Polygon = Polygon(NeutralRegion(data, c, angle))
     esSign = [1 if NR.contains(Point(point)) else -1 for point in rCoords]
-    return [((esSign[i]*NL.distance(Point(rCoords[i])))/MaxPrPoint)*assump.ecu for i in range(len(rCoords))]
+    return [((esSign[i]*NL.distance(rCoords[i]))/MaxPrPoint)*assump.ecu for i in range(len(rCoords))]
 
-def ec(data: DesignData, c: float, angle: float, point: Tuple[float, float], assump:Assumptions=defaultAssumption) -> float:
+def ec(data: DesignData, c: float, angle: float, point: Tuple[float, float],
+       assump:Assumptions=defaultAssumption) -> np.float32:
     NL: LineString = LineString(NeutralAxis(data, c, angle))
-    MaxPrPoint: float = MaxPressurePoint(data, c, angle)
+    MaxPrPoint: np.float32 = MaxPressurePoint(data, c, angle)
     NR: Polygon = Polygon(NeutralRegion(data, c, angle))
     ecSign = 1 if NR.contains(Point(point)) else -1
     return ((ecSign * NL.distance(Point(point)))/MaxPrPoint)*assump.ecu
