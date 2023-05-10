@@ -1,4 +1,5 @@
 from typing import Tuple, List
+from matplotlib import pyplot as plt
 
 from numpy.typing import NDArray
 import numpy as np
@@ -300,3 +301,44 @@ def CalcPercent(data:DesignData, P: float, Mx: float, My: float,
                 assump: Assumptions=defaultAssumption) -> np.float32:
     return least_squares(OptimPercent, (1,), bounds=((1,), (8,)),
                          args=(P, Mx, My, data, assump)).x[0]
+
+
+def showResult(data: DesignData, P, Mx, My, assump:Assumptions=defaultAssumption):
+    angle = AngleFromForces(data, P, Mx, My, assump)
+    PointNums = 20
+    Paxis = np.linspace(PtMax(data), P0(data), PointNums, endpoint=True)
+    Maxis = np.array([CalcMn(data, p, angle, assump)[0] for p in Paxis]) # type: ignore
+
+    AlphaNums = 21
+    Alphas = np.linspace(0, 360, AlphaNums)
+    M =  np.array([CalcMn(data, P, alpha, assump) for alpha in Alphas])
+    MxAxis =  np.array([m[1] for m in M])
+    MyAxis =  np.array([m[2] for m in M])
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(17,8))
+    ax1.plot(Maxis, Paxis, linewidth=2.0)
+    ax1.plot(pow(Mx**2+My**2, 0.5), P, '.', color="black", markersize=7)
+    ax1.annotate(f"P={round(P/1000, 2)}kN \nM={round(pow(Mx**2+My**2, 0.5)/1000000, 2)}kN.m \nratio={round(CalcPMRatio(data, P, Mx, My, assump), 2)}",
+                 (pow(Mx**2+My**2, 0.5), P), 
+                 textcoords="offset points", xytext=(5,0), ha="left")
+    ax1.set_title(f"P-M chart for {round(Alpha(data, Mx, My, assump), 2)} degree")
+    ax1.set_xlabel("M (N.mm)")
+    ax1.set_ylabel("P (N)")
+    ax1.axhline(y=0, color='b', linestyle='-')
+    ax1.axvline(x=0, color='b', linestyle='-')
+    ax1.grid(True)
+    
+    ax2.plot(MxAxis, MyAxis, linewidth=2.0)
+    ax2.plot(Mx, My, '.', color="black", markersize=7)
+    ax2.annotate(f"Mx={round(Mx/1000000, 2)}kN.m \nMy={round(My/1000000, 2)}kN.m", (Mx, My), 
+                 textcoords="offset points", xytext=(5,0), ha="left")
+    ax2.set_title(f"Mx-My chart on P={round(P/1000)} kN")
+    ax2.set_xlabel("Mx (N.mm)")
+    ax2.set_ylabel("My (N.mm)")
+    ax2.axhline(y=0, color='b', linestyle='-')
+    ax2.axvline(x=0, color='b', linestyle='-')
+    ax2.axis("equal")
+    ax2.grid(True)
+    
+    plt.show()
+
