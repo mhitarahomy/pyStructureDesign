@@ -1,7 +1,4 @@
-from dataclasses import dataclass, field
-from typing import Protocol, Tuple, List, Callable
-from math import copysign, degrees, atan
-from functools import partial
+from typing import Tuple, List
 
 from numpy.typing import NDArray
 import numpy as np
@@ -12,7 +9,7 @@ from shapely.ops import polygonize
 
 from scipy.optimize import least_squares, minimize
 
-from pyCivilDesign.concreteDesign.designAssumptions import Assumptions, defaultAssumption, DesignData
+from pyCivilDesign.concreteDesign.designProps import Assumptions, defaultAssumption, DesignData
 
    
 def setAs(data: DesignData, As: NDArray[np.float32]) -> DesignData:
@@ -118,10 +115,12 @@ def NeutralRegion(data: DesignData, c: float, angle: float) -> NDArray[np.float3
                          if poly.representative_point().within(topArea)]
     return np.array(NR[0].exterior.coords)
 
+
 def MaxPressurePoint(data: DesignData, c: float, angle: float) -> np.float32:
     NL: LineString = LineString(NeutralAxis(data, c, angle))
     NR: Polygon = Polygon(NeutralRegion(data, c, angle))
     return np.max([NL.distance(Point(p)) for p in list(NR.exterior.coords)])
+
 
 def PressureAxis(data: DesignData, c: float, angle: float,
                  assump:Assumptions=defaultAssumption) -> NDArray[np.float32]:
@@ -130,6 +129,7 @@ def PressureAxis(data: DesignData, c: float, angle: float,
     PL: LineString = NL.parallel_offset(distance=MaxPrPoint*(1-assump.beta1(data)),
                                         side="right")
     return np.array(PL.coords)
+
 
 def PressureRegion(data: DesignData, c: float, angle: float,
                    assump:Assumptions=defaultAssumption) -> NDArray[np.float32]:
@@ -143,13 +143,17 @@ def PressureRegion(data: DesignData, c: float, angle: float,
           poly.representative_point().within(topArea)]
     return np.array(PR[0].exterior.coords)
 
-def es(data: DesignData, c: float, angle: float, assump:Assumptions=defaultAssumption) -> NDArray[np.float32]:
+
+def es(data: DesignData, c: float, angle: float, 
+       assump:Assumptions=defaultAssumption) -> NDArray[np.float32]:
     rCoords: NDArray[np.float32] = rotateRebarCoords(data, angle)
     NL: LineString = LineString(NeutralAxis(data, c, angle))
     MaxPrPoint: np.float32 = MaxPressurePoint(data, c, angle)
     NR: Polygon = Polygon(NeutralRegion(data, c, angle))
     esSign = [1 if NR.contains(Point(point)) else -1 for point in rCoords]
-    return [((esSign[i]*NL.distance(rCoords[i]))/MaxPrPoint)*assump.ecu for i in range(len(rCoords))]
+    return np.array([((esSign[i]*NL.distance(rCoords[i]))/MaxPrPoint)*assump.ecu \
+        for i in range(len(rCoords))])
+
 
 def ec(data: DesignData, c: float, angle: float, point: Tuple[float, float],
        assump:Assumptions=defaultAssumption) -> np.float32:
@@ -159,29 +163,36 @@ def ec(data: DesignData, c: float, angle: float, point: Tuple[float, float],
     ecSign = 1 if NR.contains(Point(point)) else -1
     return ((ecSign * NL.distance(Point(point)))/MaxPrPoint)*assump.ecu
 
-def fs(data: DesignData, c: float, angle: float, assump:Assumptions) -> List[float]:
+
+def fs(data: DesignData, c: float, angle: float,
+       assump:Assumptions) -> NDArray[np.float32]:
     _es = es(data, c, angle, assump)
-    _fs = [min(abs(e)*data.Es, data.fy) for e in _es]
-    return [copysign(_fs[i], _es[i]) for i in range(len(_fs))]
+    _fs = np.minimum(np.abs(_es) * data.Es, data.fy)
+    return np.copysign(_fs, _es)
 
-def Fs(data: DesignData, c: float, angle: float, assump:Assumptions=defaultAssumption) -> List[float]:
+
+def Fs(data: DesignData, c: float, angle: float, 
+       assump:Assumptions=defaultAssumption) -> NDArray[np.float32]:
     _fs = fs(data, c, angle, assump)
-    _Fs =[data.As[i]*_fs[i] if data.As[i]*_fs[i] <= 0 else data.As[i]*(_fs[i]-0.85*data.fc) for i in range(len(_fs))]
-    return _Fs
+    return np.where(data.As*_fs <= 0, data.As*_fs, data.As*(_fs-0.85*data.fc))
 
-def Cc(data: DesignData, c: float, angle: float, assump:Assumptions=defaultAssumption) -> float:
+
+def Cc(data: DesignData, c: float, angle: float, assump:Assumptions=defaultAssumption) -> np.float32:
     _Cc = 0.85 * data.fc * Polygon(PressureRegion(data, c, angle, assump)).area
     return _Cc
 
-def Fsz(data: DesignData, c: float, angle: float, assump:Assumptions=defaultAssumption) -> Tuple[float, float]:
-    _Fs = Fs(data, c, angle, assump)
-    rebarXcoords = [p[0] for p in data.Coords]
-    rebarYcoords = [p[1] for p in data.Coords]
-    return sum([_Fs[i]*rebarXcoords[i] for i in range(len(_Fs))]), sum([_Fs[i]*rebarYcoords[i] for i in range(len(_Fs))])
 
-def M(data: DesignData, c: float, angle: float, assump:Assumptions=defaultAssumption, IsPhi: bool = True) -> Tuple[float, float, float]:
-    signX = 1 if (0 <= angle <= 90) or (270 <= angle <= 360) else -1
-    signY = 1 if (0 <= angle <= 180) else -1
+def Fsz(data: DesignData, c: float, angle: float, 
+        assump:Assumptions=defaultAssumption) -> Tuple[np.float32, np.float32]:
+    _Fs = Fs(data, c, angle, assump)
+    return np.sum(_Fs*data.Coords[:,0]), np.sum(_Fs*data.Coords[:,1])
+
+
+def M(data: DesignData, c: float, angle: float, 
+      assump:Assumptions=defaultAssumption, 
+      IsPhi: bool = True) -> Tuple[np.float32, np.float32, np.float32]:
+    signX = 1 if (0<=angle<=90) or (270<=angle<=360) else -1
+    signY = 1 if (0<=angle<=180) else -1
     _Fszx, _Fszy = Fsz(data, c, angle, assump)
     _Cc = Cc(data, c, angle, assump)
     rPr = rotate(Polygon(PressureRegion(data, c, angle, assump)), -angle, Point([0, 0]))
@@ -194,12 +205,15 @@ def M(data: DesignData, c: float, angle: float, assump:Assumptions=defaultAssump
     _M = pow((_Mx)**2+(_My)**2, 0.5)
     return _M, signX*_Mx, signY*_My
 
-def P(data: DesignData, c: float, angle: float, assump:Assumptions=defaultAssumption, IsPhi: bool = True) -> float:
+
+def P(data: DesignData, c: float, angle: float, 
+      assump:Assumptions=defaultAssumption, IsPhi: bool = True) -> np.float32:
     _Fs = Fs(data, c, angle, assump)
     _Cc = Cc(data, c, angle, assump) 
     _es = es(data, c, angle, assump)
     _phi = assump.phif(data, min(_es))
     return _phi*(_Cc+sum(_Fs)) if IsPhi else _Cc+sum(_Fs)
+
 
 def OptimF(x, *args):
     _c = x[0]
@@ -209,9 +223,14 @@ def OptimF(x, *args):
     _assump = args[3]
     return abs(_P - P(_data, _c, _angle, _assump))
 
-def C(data: DesignData, P: float, angle: float, assump:Assumptions=defaultAssumption) -> float:
+
+def C(data: DesignData, P: float, angle: float, 
+      assump:Assumptions=defaultAssumption) -> np.float32:
     _, miny, _, maxy = Polygon(rotateSection(data, angle)).bounds
-    return least_squares(OptimF, ((maxy-miny)*2.5), bounds=((0.00001), (5*(maxy-miny))), args=(P, angle, data, assump)).x[0]
+    return least_squares(OptimF, ((maxy-miny)*2.5), 
+                         bounds=((0.00001), (5*(maxy-miny))), 
+                         args=(P, angle, data, assump)).x[0]
+
 
 def OptimMaxM(x, *args):
     _P = x[0]
@@ -220,12 +239,16 @@ def OptimMaxM(x, *args):
     _assump = args[2]
     rSection = Polygon(rotateSection(_data, _angle))
     _, miny, _, maxy = rSection.bounds
-    _c = least_squares(OptimF, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), args=(_P, _angle, _data, _assump)).x[0]
+    _c = least_squares(OptimF, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), 
+                       args=(_P, _angle, _data, _assump)).x[0]
     return -M(_data, _c, _angle, _assump)[0]
 
-def CalcPMmax(data: DesignData, angle: float, assump:Assumptions=defaultAssumption) -> Tuple[float, float]:
+
+def CalcPMmax(data: DesignData, angle: float, 
+              assump:Assumptions=defaultAssumption) -> Tuple[np.float32, np.float32]:
     output = minimize(OptimMaxM, ((P0(data)/2)), method="L-BFGS-B", args=(angle, data, assump))
     return output.x[0], -output.fun
+
 
 def OptimM(x, *args):
     _P = x[0]
@@ -235,21 +258,30 @@ def OptimM(x, *args):
     _assump = args[3]
     rSection = Polygon(rotateSection(_data, _angle))
     _, miny, _, maxy = rSection.bounds
-    _c = least_squares(OptimF, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), args=(_P, _angle, _data, _assump)).x[0]
+    _c = least_squares(OptimF, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), 
+                       args=(_P, _angle, _data, _assump)).x[0]
     return abs(M(_data, _c, _angle, _assump)[0]/_P - _e0)
 
-def CalcPMRatio(data: DesignData, P: float, Mx: float, My: float, assump:Assumptions=defaultAssumption) -> float:
+
+def CalcPMRatio(data: DesignData, P: float, Mx: float, My: float, 
+                assump:Assumptions=defaultAssumption) -> np.float32:
     angle = AngleFromForces(data, P, Mx, My, assump)
     M = pow(Mx**2 + My**2, 0.5)
-    _P = least_squares(OptimM, ((P0(data)+PtMax(data))/2), bounds=((PtMax(data)), (P0(data))), args=(angle, M/P, data, assump)).x[0] if P != 0 else 1
-    _M = CalcMn(data, _P, angle, assump)[0]
-    return P/_P if (P/_P) != 0 else M/_M
+    _P = least_squares(OptimM, ((P0(data)+PtMax(data))/2), 
+                       bounds=((PtMax(data)), (P0(data))), 
+                       args=(angle, M/P, data, assump)).x[0] if P != 0 else 1
+    _M = CalcMn(data, _P, angle, assump)[0] # type: ignore
+    return np.float32(P/_P if (P/_P) != 0 else M/_M)
 
-def CalcMn(data: DesignData, P: float, angle: float, assump:Assumptions=defaultAssumption) -> Tuple[float, float, float, float]:
+
+def CalcMn(data: DesignData, P: float, angle: float, 
+           assump:Assumptions=defaultAssumption) -> Tuple[np.float32, np.float32,
+                                                          np.float32, np.float32]:
     c = C(data, P, angle, assump)
     _M, Mx, My = M(data, float(c), angle, assump)
-    alpha = Alpha(data, Mx, My, assump)
+    alpha = Alpha(data, Mx, My, assump) # type: ignore
     return _M, Mx, My, alpha
+
 
 def OptimPercent(x, *args):
     percent = x[0]
@@ -261,5 +293,8 @@ def OptimPercent(x, *args):
     Data = setAsPercent(data, percent)
     return abs(CalcPMRatio(Data, P, Mx, My, assump) - 1)
 
-def CalcPercent(data:DesignData, P: float, Mx: float, My: float, assump: Assumptions=defaultAssumption) -> float:
-    return least_squares(OptimPercent, (1,), bounds=((1,), (8,)), args=(P, Mx, My, data, assump)).x[0]
+
+def CalcPercent(data:DesignData, P: float, Mx: float, My: float, 
+                assump: Assumptions=defaultAssumption) -> np.float32:
+    return least_squares(OptimPercent, (1,), bounds=((1,), (8,)),
+                         args=(P, Mx, My, data, assump)).x[0]
