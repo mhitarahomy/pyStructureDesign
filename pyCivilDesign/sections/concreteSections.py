@@ -56,6 +56,24 @@ class RectConcreteSct(ConcreteSct):
 
 
 @dataclass()
+class TrapzoidConcreteSct(ConcreteSct):
+    b1: float = field(default=400)
+    b2: float = field(default=300)
+    h: float = field(default=600)
+    concMat: ConcreteMat = field(default_factory=C25def)
+    section: ListOfPoints = field(init=False)
+    sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Rectangle)
+    lBarMat: RebarMat = field(default_factory=AIIIdef)
+    cBarMat: RebarMat = field(default_factory=AIIdef)
+    rebarCoords: List[RebarCoords] = field(default_factory=list)
+
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        super().__setattr__(__name, __value)
+        if __name=="b1" or __name=="b2" or __name=="h":
+            self.section =  Sct.TrapzoidSct(self.b1, self.b2, self.h)
+
+
+@dataclass()
 class TShapeConcreteSct(ConcreteSct):
     b: float = field(default=400)
     h: float = field(default=600)
