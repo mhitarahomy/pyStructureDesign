@@ -109,6 +109,11 @@ def LinearRebarShape(num: int, rebarSct:Rebar|GRebars) -> List[Rebar|GRebars]:
     return [rebarSct for i in range(num)]
 
 
+def LinearRebarShapeDist(length: float, distance: int, rebarSct:Rebar|GRebars) -> List[Rebar|GRebars]:
+    num = ceil(length / distance) + 1
+    return [rebarSct for i in range(num)]
+
+
 def CircularRebarShape(num: int, rebarSct:Rebar|GRebars) -> List[Rebar|GRebars]:
     return [rebarSct for i in range(num)]
 # endregion
@@ -118,20 +123,39 @@ def setCover(cover:Cover|float|int):
     return cover if type(cover)==Cover else Cover(cover, cover, cover, cover) if (
         type(cover)==float or type(cover)==int) else Cover(0, 0, 0, 0)
 
+def CreateLineWithCover(line: ListOfPoints, startCover: float, endCover: float) -> ListOfPoints:
+    _line = LineString(line)
+    startPoint = _line.interpolate(startCover)
+    endPoint = _line.interpolate(_line.length - endCover)
+    _points =[line[i] for i in range(1,len(line)-1,1) if LineString(line[:i+1]).length < (_line.length - endCover)]
+    _points.insert(0, line[0])
+    _points.extend([(endPoint.x, endPoint.y)])
+    points = [_points[i+1] for i in range(len(_points)-1) if LineString(_points[:i+2]).length > startCover]
+    points.insert(0, (startPoint.x, startPoint.y))
+    return points
+
 def PointRebar(rebar: Rebar|GRebars, point: Tuple[float, float]) -> List[RebarCoords]:
     return [RebarCoords(point=point, rebar=rebar)]
 
-def LinearRebars(barShape: List[Rebar|GRebars], startCover:float, endCover:float , line: ListOfPoints, 
-                 offsetDist: float=0, offsetSide: str = "left", 
+def LinearRebars(barShape: List[Rebar|GRebars], startCover:float, endCover:float , 
+                 line: ListOfPoints, *, offsetDist: float=0, 
+                 offsetSide: str = "left", IsFirst: bool=True, IsEnd: bool=True,
                  barDistances: List[float]|None = None) -> List[RebarCoords]:
     barsNum = len(barShape)
     if (barDistances != None) and (len(barDistances) != len(barShape)):
         raise ValueError("barShape and barDistances must have same length.")
-    _line = LineString(line)
-    pStart = _line.parallel_offset(offsetDist, offsetSide).interpolate(startCover)
-    pEnd = _line.parallel_offset(offsetDist, offsetSide).interpolate(_line.length-endCover)
-    d = ([i / (barsNum-1) for i in range(barsNum)] if barsNum!=1 else [0.5]) if barDistances == None else barDistances
-    return [RebarCoords(point=list(LineString([pStart, pEnd]).interpolate(d[i], normalized=True).coords)[0], rebar=barShape[i]) for i in range(barsNum)]
+    lineStr = LineString(line).parallel_offset(offsetDist, offsetSide) \
+        if offsetDist != 0 else LineString(line)
+    _line = LineString(CreateLineWithCover(list(lineStr.coords), startCover, endCover))
+    d = ([i / (barsNum-1) for i in range(barsNum)] if barsNum!=1 else [0.5]) \
+        if barDistances == None else barDistances
+    pointList = [PointRebar(barShape[i], 
+                            list(_line.interpolate(d[i], normalized=True).coords)[0])[0] \
+                                for i in range(barsNum)]
+    if not IsFirst: del pointList[0]
+    if not IsEnd: del pointList[-1]
+    return pointList
+
 
 def QuadrilateralRebars(barShape: List[List[Rebar|GRebars]], cover: Cover|float|int, 
                               points: ListOfPoints, barDistances: List[List[float]]|None=None,
