@@ -40,7 +40,7 @@ def RectangleSct(b: float, h: float) -> ListOfPoints:
 def TrapzoidSct(b1: float, b2: float, h: float) -> ListOfPoints:
     sct = Polygon([(b1/2, h/2), (-b1/2, h/2), (-b2/2, -h/2), (b2/2, -h/2)])
     msct = moveCentroidToOrigin(sct)
-    return msct.exterior.coords
+    return list(msct.exterior.coords)
 
 
 def TShapeSct(b: float, h: float, th1: float, tb1: float, th2: float|None=None, tb2: float|None=None) -> ListOfPoints:
@@ -85,3 +85,48 @@ def CreateEllipseSct(a: float, b: float) -> ListOfPoints:
     theta = [2 * pi * i / n for i in range(n)]
     sct = Polygon([(a * cos(t), b * sin(t)) for t in theta])
     return list(sct.exterior.coords)
+
+
+def DistanceFrom(section: ListOfPoints, dist: float, position: str="top") -> ListOfPoints:
+    sct = Polygon(section)
+    minx, miny, maxx, maxy = sct.bounds
+    if (position == "top" or position=="bottom") and (dist > maxy-miny): 
+        raise ValueError("distance is greater than height of shape.")
+    if (position == "right" or position=="left") and (dist > maxx-minx): 
+        raise ValueError("distance is greater than width of shape.")
+    line = LineString([(maxx+10, maxy-dist), (minx-10, maxy-dist)]) if position=="top" else\
+            LineString([(maxx+10, miny+dist), (minx-10, miny+dist)]) if position=="bottom" else\
+            LineString([(maxx-dist, maxy+10), (maxx-dist, miny-10)]) if position=="right" else\
+            LineString([(minx+dist, maxy+10), (minx+dist, miny-10)]) if position=="left" else None
+    return list(sct.intersection(line).coords)
+
+
+def Edge(section: list, position: str = "top"):
+    sct = Polygon(section)
+    minx, miny, maxx, maxy = sct.bounds
+    Points = [point for point in section if point[1]==maxy] if position=="top" else\
+                [point for point in section if point[1]==miny] if position=="bottom" else\
+                [point for point in section if point[0]==maxx] if position=="right" else\
+                [point for point in section if point[0]==minx] if position=="left" else None
+    if Points==None: raise ValueError("position is wrong")
+    if len(Points) > 1:
+        output = LineString(Points)
+    else:
+        firstPoint = Points[0]
+        if section.index(firstPoint)==0:
+            secondPoint = section[section.index(firstPoint)+1]
+        elif section.index(firstPoint)==len(section)-1:
+            secondPoint = section[section.index(firstPoint)-1]
+        else:
+            spoint1 = section[section.index(firstPoint)-1]
+            spoint2 = section[section.index(firstPoint)+1]
+            if position == "top":
+                secondPoint = spoint1 if firstPoint[1]-spoint1[1] < firstPoint[1]-spoint2[1] else spoint2
+            elif position == "bottom":
+                secondPoint = spoint1 if spoint1[1]-firstPoint[1] < spoint2[1]-firstPoint[1] else spoint2
+            elif position == "right":
+                secondPoint = spoint1 if firstPoint[0]-spoint1[0] < firstPoint[0]-spoint2[0] else spoint2
+            elif position == "left":
+                secondPoint = spoint1 if spoint1[0]-firstPoint[0] < spoint2[0]-firstPoint[0] else spoint2
+        output = LineString([firstPoint, secondPoint])
+    return list(output.coords)
