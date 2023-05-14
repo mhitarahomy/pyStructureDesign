@@ -157,6 +157,7 @@ class BoxConcreteSct(ConcreteSct):
 @dataclass()
 class CircConcreteSct(ConcreteSct):
     d: float = field(default=400)
+    bw: float = field(init=False)
     concMat: ConcreteMat = field(default_factory=C25def)
     section: ListOfPoints = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Circle)
@@ -175,6 +176,7 @@ class CircConcreteSct(ConcreteSct):
 class PipeConcreteSct(ConcreteSct):
     d: float = field(default=400)
     th: float = field(default=50)
+    bw: float = field(init=False)
     concMat: ConcreteMat = field(default_factory=C25def)
     section: ListOfPoints = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Pipe)

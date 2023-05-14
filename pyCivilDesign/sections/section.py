@@ -75,7 +75,7 @@ def CircleSct(d: float) -> ListOfPoints:
 
 def PipeSct(d: float, th: float) -> ListOfPoints:
     outerCircle = Polygon(CircleSct(d))
-    innerCircle = Polygon(CircleSct(d-2*th))
+    innerCircle = Polygon(CircleSct(d-(2*th)))
     sct = outerCircle.difference(innerCircle)
     return list(sct.exterior.coords)
 

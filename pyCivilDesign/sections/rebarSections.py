@@ -191,7 +191,8 @@ def CircularBars(barShape: List[Rebar|GRebars], cover: float, D: float) -> List[
     barsNum = len(barShape)
     r = (D/2) - cover
     alphas = [i * (360/barsNum) for i in range(barsNum)]
-    return [RebarCoords(rebar=barShape[i], point=rotate(Point(0, r), alphas[i], Point(0, 0))) for i in range(barsNum)]
+    points = [rotate(Point(0, r), alphas[i], Point(0, 0)) for i in range(barsNum)]
+    return [RebarCoords(rebar=barShape[i], point=(points[i].x, points[i].y)) for i in range(barsNum)]
 
 def DeleteRebars(rebarCoords: List[RebarCoords], *args: int) -> List[RebarCoords]:
     output = rebarCoords
