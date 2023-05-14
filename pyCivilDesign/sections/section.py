@@ -108,11 +108,15 @@ def Edge(section: list, position: str = "top"):
                 [point for point in section if point[1]==miny] if position=="bottom" else\
                 [point for point in section if point[0]==maxx] if position=="right" else\
                 [point for point in section if point[0]==minx] if position=="left" else None
+    spoint1 = (0, 0)
+    spoint2 = (0, 0)
+    IsThreePoint: bool = False
     if Points==None: raise ValueError("position is wrong")
     if len(Points) > 1:
         output = LineString(Points)
     else:
         firstPoint = Points[0]
+        secondPoint = (0, 0)
         if section.index(firstPoint)==0:
             secondPoint = section[section.index(firstPoint)+1]
         elif section.index(firstPoint)==len(section)-1:
@@ -121,12 +125,17 @@ def Edge(section: list, position: str = "top"):
             spoint1 = section[section.index(firstPoint)-1]
             spoint2 = section[section.index(firstPoint)+1]
             if position == "top":
+                IsThreePoint = firstPoint[1]-spoint1[1] == firstPoint[1]-spoint2[1]
                 secondPoint = spoint1 if firstPoint[1]-spoint1[1] < firstPoint[1]-spoint2[1] else spoint2
             elif position == "bottom":
+                IsThreePoint = spoint1[1]-firstPoint[1] == spoint2[1]-firstPoint[1]
                 secondPoint = spoint1 if spoint1[1]-firstPoint[1] < spoint2[1]-firstPoint[1] else spoint2
             elif position == "right":
+                IsThreePoint = firstPoint[0]-spoint1[0] == firstPoint[0]-spoint2[0]
                 secondPoint = spoint1 if firstPoint[0]-spoint1[0] < firstPoint[0]-spoint2[0] else spoint2
             elif position == "left":
+                IsThreePoint = spoint1[0]-firstPoint[0] == spoint2[0]-firstPoint[0]
                 secondPoint = spoint1 if spoint1[0]-firstPoint[0] < spoint2[0]-firstPoint[0] else spoint2
-        output = LineString([firstPoint, secondPoint])
+        
+        output = LineString([spoint1, firstPoint, spoint2]) if IsThreePoint else LineString([firstPoint, secondPoint])
     return list(output.coords)
