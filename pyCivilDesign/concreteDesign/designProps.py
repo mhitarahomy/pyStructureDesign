@@ -5,11 +5,12 @@ import numpy as np
 from numpy.typing import NDArray
 
 
-
-@dataclass
+@dataclass(kw_only=True)
 class DesignData():
     section: NDArray[np.float32]
+    bw: np.float32
     fy: np.float32
+    fyt: np.float32
     fc: np.float32
     Coords: NDArray[np.float32]
     As: NDArray[np.float32]
@@ -36,8 +37,12 @@ class Assumptions():
     phit: np.float32 = np.float32(0.6)
     ecu: np.float32 = np.float32(0.003)
 
+
 defaultAssumption = Assumptions()
 
+
 def setDesignDataFromSection(sct: ConcreteSct) -> DesignData:
-    return DesignData(np.array(sct.section), np.float32(sct.lBarMat.fy), np.float32(sct.concMat.fc), 
-                      np.array(sct.Coords), np.array(sct.As), np.float32(sct.lBarMat.Es))
+    return DesignData(
+        section=np.array(sct.section), bw=np.float32(sct.bw), fy=np.float32(sct.lBarMat.fy), 
+        fyt=np.float32(sct.cBarMat.fy),fc=np.float32(sct.concMat.fc), 
+        Coords=np.array(sct.Coords), As=np.array(sct.As), Es=np.float32(sct.lBarMat.Es))
