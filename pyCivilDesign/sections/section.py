@@ -68,14 +68,14 @@ def BoxSct(b: float, h: float, th: float) -> ListOfPoints:
     return list(sct.exterior.coords)
 
 
-def CircleSct(r: float) -> ListOfPoints:
-    sct = Point(0, 0).buffer(r)
+def CircleSct(d: float) -> ListOfPoints:
+    sct = Point(0, 0).buffer(d/2)
     return list(sct.exterior.coords)
 
 
-def PipeSct(r: float, th: float) -> ListOfPoints:
-    outerCircle = Polygon(CircleSct(r))
-    innerCircle = Polygon(CircleSct(r-2*th))
+def PipeSct(d: float, th: float) -> ListOfPoints:
+    outerCircle = Polygon(CircleSct(d))
+    innerCircle = Polygon(CircleSct(d-2*th))
     sct = outerCircle.difference(innerCircle)
     return list(sct.exterior.coords)
 
