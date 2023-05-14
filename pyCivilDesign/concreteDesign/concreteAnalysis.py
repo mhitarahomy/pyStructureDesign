@@ -1,3 +1,4 @@
+from math import sqrt
 from typing import Tuple, List
 from matplotlib import pyplot as plt
 
@@ -346,3 +347,7 @@ def showResult(data: DesignData, P, Mx, My, assump:Assumptions=defaultAssumption
 
 def Av_S_Min(data: DesignData): 
     return max(0.062*np.sqrt(data.fc)*(data.bw/data.fyt), 0.35*(data.bw/data.fyt))
+
+
+def VcMax(data: DesignData): 
+    return 0.42*sqrt(data.fc) * data.bw * data.d
