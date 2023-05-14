@@ -72,7 +72,7 @@ class TrapzoidConcreteSct(ConcreteSct):
     h: float = field(default=600)
     concMat: ConcreteMat = field(default_factory=C25def)
     section: ListOfPoints = field(init=False)
-    sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Rectangle)
+    sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Trapezoid)
     lBarMat: RebarMat = field(default_factory=AIIIdef)
     cBarMat: RebarMat = field(default_factory=AIIdef)
     rebarCoords: List[RebarCoords] = field(default_factory=list)
@@ -108,6 +108,86 @@ class TShapeConcreteSct(ConcreteSct):
                                           self.tf1, self.tw1)
             self.bw = self.tw if self.tw1==None else (self.tw + self.tw1) / 2
         
+
+@dataclass()
+class LShapeConcreteSct(ConcreteSct):
+    b: float = field(default=400)
+    h: float = field(default=600)
+    tf: float = field(default=100)
+    tw: float = field(default=100)
+    tf1: float|None = field(default=None)
+    tw1: float|None = field(default=None)
+    bw: float|None = field(init=False)
+    concMat: ConcreteMat = field(default_factory=C25def)
+    section: ListOfPoints = field(init=False)
+    sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.LShape)
+    lBarMat: RebarMat = field(default_factory=AIIIdef)
+    cBarMat: RebarMat = field(default_factory=AIIdef)
+    rebarCoords: List[RebarCoords] = field(default_factory=list)
+
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        super().__setattr__(__name, __value)
+        if __name=="b" or __name=="h" or __name=="tf" or \
+            __name=="tw" or __name=="tf1" or __name=="tw1":
+            self.section =  Sct.LShapeSct(self.b, self.h, self.tf, self.tw,
+                                          self.tf1, self.tw1)
+            self.bw = self.tw if self.tw1==None else (self.tw + self.tw1) / 2
+
+
+@dataclass()
+class BoxConcreteSct(ConcreteSct):
+    b: float = field(default=400)
+    h: float = field(default=600)
+    th: float = field(default=50)
+    bw: float = field(init=False)
+    concMat: ConcreteMat = field(default_factory=C25def)
+    section: ListOfPoints = field(init=False)
+    sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Box)
+    lBarMat: RebarMat = field(default_factory=AIIIdef)
+    cBarMat: RebarMat = field(default_factory=AIIdef)
+    rebarCoords: List[RebarCoords] = field(default_factory=list)
+
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        super().__setattr__(__name, __value)
+        if __name=="b" or __name=="h" or __name=="th":
+            self.section =  Sct.BoxSct(self.b, self.h, self.th)
+            self.bw = 2 * self.th
+
+
+@dataclass()
+class CircConcreteSct(ConcreteSct):
+    d: float = field(default=400)
+    concMat: ConcreteMat = field(default_factory=C25def)
+    section: ListOfPoints = field(init=False)
+    sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Circle)
+    lBarMat: RebarMat = field(default_factory=AIIIdef)
+    cBarMat: RebarMat = field(default_factory=AIIdef)
+    rebarCoords: List[RebarCoords] = field(default_factory=list)
+
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        super().__setattr__(__name, __value)
+        if __name=="d":
+            self.section =  Sct.CircleSct(self.d)
+            self.bw = 0.8 * self.d
+
+
+@dataclass()
+class PipeConcreteSct(ConcreteSct):
+    d: float = field(default=400)
+    th: float = field(default=50)
+    concMat: ConcreteMat = field(default_factory=C25def)
+    section: ListOfPoints = field(init=False)
+    sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Pipe)
+    lBarMat: RebarMat = field(default_factory=AIIIdef)
+    cBarMat: RebarMat = field(default_factory=AIIdef)
+    rebarCoords: List[RebarCoords] = field(default_factory=list)
+
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        super().__setattr__(__name, __value)
+        if __name=="d" or __name=="th":
+            self.section =  Sct.PipeSct(self.d, self.th)
+            self.bw = 0.8 * 2*self.th
+
 
 def showSection(concSct: ConcreteSct) -> None:
     fig = plt.figure(dpi=90)
