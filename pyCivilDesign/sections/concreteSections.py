@@ -19,6 +19,7 @@ AIIIdef = lambda: AIII
 @dataclass()
 class ConcreteSct():
     section: ListOfPoints
+    bw: float|None
     sectionType: Sct.SectionType
     concMat: ConcreteMat
     lBarMat: RebarMat 
@@ -42,6 +43,7 @@ class ConcreteSct():
 class RectConcreteSct(ConcreteSct):
     b: float = field(default=400)
     h: float = field(default=600)
+    bw: float|None = field(init=False)
     concMat: ConcreteMat = field(default_factory=C25def)
     section: ListOfPoints = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Rectangle)
@@ -53,12 +55,14 @@ class RectConcreteSct(ConcreteSct):
         super().__setattr__(__name, __value)
         if __name=="b" or __name=="h":
             self.section =  Sct.RectangleSct(self.b, self.h)
+            self.bw = self.b
 
 
 @dataclass()
 class TrapzoidConcreteSct(ConcreteSct):
     b1: float = field(default=400)
     b2: float = field(default=300)
+    bw: float|None = field(init=False)
     h: float = field(default=600)
     concMat: ConcreteMat = field(default_factory=C25def)
     section: ListOfPoints = field(init=False)
@@ -71,6 +75,7 @@ class TrapzoidConcreteSct(ConcreteSct):
         super().__setattr__(__name, __value)
         if __name=="b1" or __name=="b2" or __name=="h":
             self.section =  Sct.TrapzoidSct(self.b1, self.b2, self.h)
+            self.bw = (self.b1 + self.b2)/2
 
 
 @dataclass()
@@ -81,6 +86,7 @@ class TShapeConcreteSct(ConcreteSct):
     tw: float = field(default=100)
     tf1: float|None = field(default=None)
     tw1: float|None = field(default=None)
+    bw: float|None = field(init=False)
     concMat: ConcreteMat = field(default_factory=C25def)
     section: ListOfPoints = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.TShape)
@@ -94,6 +100,7 @@ class TShapeConcreteSct(ConcreteSct):
             __name=="tw" or __name=="tf1" or __name=="tw1":
             self.section =  Sct.TShapeSct(self.b, self.h, self.tf, self.tw,
                                           self.tf1, self.tw1)
+            self.bw = self.tw if self.tw1==None else (self.tw + self.tw1) / 2
         
 
 def showSection(concSct: ConcreteSct) -> None:
