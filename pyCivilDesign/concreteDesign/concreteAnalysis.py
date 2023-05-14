@@ -14,7 +14,8 @@ from pyCivilDesign.concreteDesign.designProps import Assumptions, defaultAssumpt
 
    
 def setAs(data: DesignData, As: NDArray[np.float32]) -> DesignData:
-    return DesignData(data.section, data.fy, data.fc, data.Coords, As, data.Es)
+    return DesignData(section=data.section, bw=data.bw, d=data.d, fy= data.fy, fyt=data.fyt,
+                      fc=data.fc, Coords=data.Coords, As=As, Es=data.Es)
 
 
 def setAsPercent(data: DesignData, percent: float) -> DesignData:
@@ -342,3 +343,6 @@ def showResult(data: DesignData, P, Mx, My, assump:Assumptions=defaultAssumption
     
     plt.show()
 
+
+def Av_S_Min(data: DesignData): 
+    return max(0.062*np.sqrt(data.fc)*(data.bw/data.fyt), 0.35*(data.bw/data.fyt))

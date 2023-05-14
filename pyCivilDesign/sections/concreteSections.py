@@ -19,8 +19,8 @@ AIIIdef = lambda: AIII
 @dataclass()
 class ConcreteSct():
     section: ListOfPoints
-    bw: float|None
     sectionType: Sct.SectionType
+    bw: float
     concMat: ConcreteMat
     lBarMat: RebarMat 
     cBarMat: RebarMat
@@ -37,13 +37,19 @@ class ConcreteSct():
     @property
     def As(self) -> List[float]:
         return [rcoord.rebar.Area for rcoord in self.rebarCoords]
+    
+    @property
+    def d(self) -> float:
+        _, _, _, maxy = Polygon(self.section).bounds
+        return max(*[maxy - rcoord.point[1] for rcoord in self.rebarCoords]) \
+            if len(self.rebarCoords)!=0 else 0
 
 
 @dataclass()
 class RectConcreteSct(ConcreteSct):
     b: float = field(default=400)
     h: float = field(default=600)
-    bw: float|None = field(init=False)
+    bw: float = field(init=False)
     concMat: ConcreteMat = field(default_factory=C25def)
     section: ListOfPoints = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Rectangle)
