@@ -1,6 +1,7 @@
 from typing import List, Tuple
 from matplotlib import pyplot as plt
 from pyCivilDesign.sections.concreteSections import showSection, RectConcreteSct
+from pyCivilDesign.sections.concreteSections import showSection, RectConcreteSct
 from pyCivilDesign.concreteDesign.designProps import setDesignDataFromSection
 import pyCivilDesign.concreteDesign.concreteAnalysis as Canalysis 
 import pyCivilDesign.sections.rebarSections as Rsct
@@ -21,5 +22,6 @@ sct.rebarCoords = Rsct.RectRebarsSct(sct.section, 4, 5, d20, 50)
 # sct.section = 
 # sct.rebarCoords = Rsct.LinearRebars([d20 for i in range(5)], 50, 50, SCT.DistanceFrom(sct.section, 50))
 # sct.rebarCoords.extend(Rsct.LinearRebars([d20 for i in range(5)], 50, 50, SCT.DistanceFrom(sct.section, 50, "bottom")))
+# sct.rebarCoords = Rsct.CircularBars([d20 for i in range(9)], 50, sct.d)
 # sct.rebarCoords = Rsct.CircularBars([d20 for i in range(9)], 50, sct.d)
 showSection(sct)
