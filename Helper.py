@@ -1,6 +1,6 @@
 from typing import List, Tuple
 from matplotlib import pyplot as plt
-from pyCivilDesign.sections.concreteSections import showSection, BoxConcreteSct, CircConcreteSct, PipeConcreteSct
+from pyCivilDesign.sections.concreteSections import showSection, RectConcreteSct
 from pyCivilDesign.concreteDesign.designProps import setDesignDataFromSection
 import pyCivilDesign.concreteDesign.concreteAnalysis as Canalysis 
 import pyCivilDesign.sections.rebarSections as Rsct
@@ -16,11 +16,10 @@ d20 = Rsct.d20
 # sct = LShapeConcreteSct(b=600, h=400, tf=100, tw=200)
 # sct = BoxConcreteSct(b=500, h=600, th=100)
 # sct = CircConcreteSct(d=500)
-circ1 = SCT.CircleSct(600)
-circ2 = SCT.CircleSct(500)
-sct = PipeConcreteSct(d=500, th=100)
+sct = RectConcreteSct(b=500, h=600)
+sct.rebarCoords = Rsct.RectRebarsSct(sct.section, 4, 5, d20, 50)
 # sct.section = 
 # sct.rebarCoords = Rsct.LinearRebars([d20 for i in range(5)], 50, 50, SCT.DistanceFrom(sct.section, 50))
 # sct.rebarCoords.extend(Rsct.LinearRebars([d20 for i in range(5)], 50, 50, SCT.DistanceFrom(sct.section, 50, "bottom")))
-sct.rebarCoords = Rsct.CircularBars([d20 for i in range(9)], 50, sct.d)
+# sct.rebarCoords = Rsct.CircularBars([d20 for i in range(9)], 50, sct.d)
 showSection(sct)
