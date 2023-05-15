@@ -93,8 +93,9 @@ def DistanceFrom(section: Polygon, dist: float, position: str="top") -> ListOfPo
     return list(section.intersection(line).coords)
 
 
-def Edge(section: Polygon, position: str = "top"):
+def Edge(section: Polygon, position: str = "top") -> LineString:
     coords = list(section.exterior.coords)
+    del coords[-1]
     minx, miny, maxx, maxy = section.bounds
     Points = [point for point in coords if point[1]==maxy] if position=="top" else\
                 [point for point in coords if point[1]==miny] if position=="bottom" else\
@@ -130,4 +131,4 @@ def Edge(section: Polygon, position: str = "top"):
                 secondPoint = spoint1 if spoint1[0]-firstPoint[0] < spoint2[0]-firstPoint[0] else spoint2
         
         output = LineString([spoint1, firstPoint, spoint2]) if IsThreePoint else LineString([firstPoint, secondPoint])
-    return list(output.coords)
+    return output
