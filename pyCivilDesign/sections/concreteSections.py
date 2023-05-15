@@ -18,7 +18,7 @@ AIIIdef = lambda: AIII
 
 @dataclass()
 class ConcreteSct():
-    section: ListOfPoints
+    section: Polygon
     sectionType: Sct.SectionType
     bw: float
     concMat: ConcreteMat
@@ -28,7 +28,7 @@ class ConcreteSct():
     
     @property
     def sectionCoords(self) -> ListOfPoints:
-        return list(Polygon(self.section).exterior.coords)
+        return list(self.section.exterior.coords)
     
     @property
     def Coords(self) -> ListOfPoints:
@@ -40,7 +40,7 @@ class ConcreteSct():
     
     @property
     def d(self) -> float:
-        _, _, _, maxy = Polygon(self.section).bounds
+        _, _, _, maxy = self.section.bounds
         return max(*[maxy - rcoord.point[1] for rcoord in self.rebarCoords]) \
             if len(self.rebarCoords)!=0 else 0
 
@@ -51,7 +51,7 @@ class RectConcreteSct(ConcreteSct):
     h: float = field(default=600)
     bw: float = field(init=False)
     concMat: ConcreteMat = field(default_factory=C25def)
-    section: ListOfPoints = field(init=False)
+    section: Polygon = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Rectangle)
     lBarMat: RebarMat = field(default_factory=AIIIdef)
     cBarMat: RebarMat = field(default_factory=AIIdef)
@@ -71,7 +71,7 @@ class TrapzoidConcreteSct(ConcreteSct):
     bw: float|None = field(init=False)
     h: float = field(default=600)
     concMat: ConcreteMat = field(default_factory=C25def)
-    section: ListOfPoints = field(init=False)
+    section: Polygon = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Trapezoid)
     lBarMat: RebarMat = field(default_factory=AIIIdef)
     cBarMat: RebarMat = field(default_factory=AIIdef)
@@ -94,7 +94,7 @@ class TShapeConcreteSct(ConcreteSct):
     tw1: float|None = field(default=None)
     bw: float|None = field(init=False)
     concMat: ConcreteMat = field(default_factory=C25def)
-    section: ListOfPoints = field(init=False)
+    section: Polygon = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.TShape)
     lBarMat: RebarMat = field(default_factory=AIIIdef)
     cBarMat: RebarMat = field(default_factory=AIIdef)
@@ -119,7 +119,7 @@ class LShapeConcreteSct(ConcreteSct):
     tw1: float|None = field(default=None)
     bw: float|None = field(init=False)
     concMat: ConcreteMat = field(default_factory=C25def)
-    section: ListOfPoints = field(init=False)
+    section: Polygon = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.LShape)
     lBarMat: RebarMat = field(default_factory=AIIIdef)
     cBarMat: RebarMat = field(default_factory=AIIdef)
@@ -141,7 +141,7 @@ class BoxConcreteSct(ConcreteSct):
     th: float = field(default=50)
     bw: float = field(init=False)
     concMat: ConcreteMat = field(default_factory=C25def)
-    section: ListOfPoints = field(init=False)
+    section: Polygon = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Box)
     lBarMat: RebarMat = field(default_factory=AIIIdef)
     cBarMat: RebarMat = field(default_factory=AIIdef)
@@ -159,7 +159,7 @@ class CircConcreteSct(ConcreteSct):
     d: float = field(default=400)
     bw: float = field(init=False)
     concMat: ConcreteMat = field(default_factory=C25def)
-    section: ListOfPoints = field(init=False)
+    section: Polygon = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Circle)
     lBarMat: RebarMat = field(default_factory=AIIIdef)
     cBarMat: RebarMat = field(default_factory=AIIdef)
@@ -178,7 +178,7 @@ class PipeConcreteSct(ConcreteSct):
     th: float = field(default=50)
     bw: float = field(init=False)
     concMat: ConcreteMat = field(default_factory=C25def)
-    section: ListOfPoints = field(init=False)
+    section: Polygon = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Pipe)
     lBarMat: RebarMat = field(default_factory=AIIIdef)
     cBarMat: RebarMat = field(default_factory=AIIdef)
@@ -194,7 +194,7 @@ class PipeConcreteSct(ConcreteSct):
 def showSection(concSct: ConcreteSct) -> None:
     fig = plt.figure(dpi=90)
     ax = fig.add_subplot()  # type: ignore
-    plot_polygon(Polygon(concSct.section), add_points=False, linewidth=1)
+    plot_polygon(concSct.section, add_points=False, linewidth=1)
     if concSct.rebarCoords != None:
         plot_points([Point(rcoord.point) for rcoord in concSct.rebarCoords], color='black')
         for i in range(len(concSct.rebarCoords)):

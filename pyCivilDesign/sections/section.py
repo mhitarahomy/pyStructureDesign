@@ -26,70 +26,62 @@ def moveCentroidToOrigin(section: Polygon) -> Polygon:
     return translate(section, -section.centroid.x, -section.centroid.y)
 
 
-def TriangleSct(b: float, h: float):
+def TriangleSct(b: float, h: float) -> Polygon:
     sct = Polygon([(0, h), (-b/2, 0), (b/2, 0)])
-    msct = moveCentroidToOrigin(sct)
-    return list(msct.exterior.coords)
+    return moveCentroidToOrigin(sct)
 
 
-def RectangleSct(b: float, h: float) -> ListOfPoints:
-    sct = Polygon([(b/2, h/2), (-b/2, h/2), (-b/2, -h/2), (b/2, -h/2)])
-    return list(sct.exterior.coords)
+def RectangleSct(b: float, h: float) -> Polygon:
+    return Polygon([(b/2, h/2), (-b/2, h/2), (-b/2, -h/2), (b/2, -h/2)])
 
 
-def TrapzoidSct(b1: float, b2: float, h: float) -> ListOfPoints:
+def TrapzoidSct(b1: float, b2: float, h: float) -> Polygon:
     sct = Polygon([(b1/2, h/2), (-b1/2, h/2), (-b2/2, -h/2), (b2/2, -h/2)])
-    msct = moveCentroidToOrigin(sct)
-    return list(msct.exterior.coords)
+    return moveCentroidToOrigin(sct)
 
 
-def TShapeSct(b: float, h: float, th1: float, tb1: float, th2: float|None=None, tb2: float|None=None) -> ListOfPoints:
+def TShapeSct(b: float, h: float, th1: float, tb1: float,
+              th2: float|None=None, tb2: float|None=None) -> Polygon:
     tb2 = tb1 if tb2 == None else tb2
     th2 = th1 if th2 == None else th2
     sct = Polygon([(b/2, h), (-b/2, h), (-b/2, h-th1), (-tb2/2, h-th2),
                   (-tb1/2, 0), (tb1/2, 0), (tb2/2, h-th2), (b/2, h-th1), (b/2, h)])
-    msct = moveCentroidToOrigin(sct)
-    return list(msct.exterior.coords)
+    return moveCentroidToOrigin(sct)
 
 
-def LShapeSct(b: float, h: float, th1: float, tb1: float, th2: float|None=None, tb2: float|None=None) -> ListOfPoints:
+def LShapeSct(b: float, h: float, th1: float, tb1: float,
+              th2: float|None=None, tb2: float|None=None) -> Polygon:
     tb2 = tb1 if tb2 == None else tb2
     th2 = th1 if th2 == None else th2
     sct = Polygon([(0, 0), (0, h), (b, h), (b, h-th1),
                   (tb2, h-th2), (tb1, 0), (0, 0)])
-    msct = moveCentroidToOrigin(sct)
-    return list(msct.exterior.coords)
+    return moveCentroidToOrigin(sct)
 
 
-def BoxSct(b: float, h: float, th: float) -> ListOfPoints:
+def BoxSct(b: float, h: float, th: float) -> Polygon:
     outerRect = Polygon(RectangleSct(b, h))
     innerRect = Polygon(RectangleSct(b-2*th, h-2*th))
-    sct = outerRect.difference(innerRect)
-    return list(sct.exterior.coords)
+    return outerRect.difference(innerRect)
 
 
-def CircleSct(d: float) -> ListOfPoints:
-    sct = Point(0, 0).buffer(d/2)
-    return list(sct.exterior.coords)
+def CircleSct(d: float) -> Polygon:
+    return Point(0, 0).buffer(d/2)
 
 
-def PipeSct(d: float, th: float) -> ListOfPoints:
+def PipeSct(d: float, th: float) -> Polygon:
     outerCircle = Polygon(CircleSct(d))
     innerCircle = Polygon(CircleSct(d-(2*th)))
-    sct = outerCircle.difference(innerCircle)
-    return list(sct.exterior.coords)
+    return outerCircle.difference(innerCircle)
 
 
-def CreateEllipseSct(a: float, b: float) -> ListOfPoints:
+def CreateEllipseSct(a: float, b: float) -> Polygon:
     n = 100
     theta = [2 * pi * i / n for i in range(n)]
-    sct = Polygon([(a * cos(t), b * sin(t)) for t in theta])
-    return list(sct.exterior.coords)
+    return Polygon([(a*cos(t), b*sin(t)) for t in theta])
 
 
-def DistanceFrom(section: ListOfPoints, dist: float, position: str="top") -> ListOfPoints:
-    sct = Polygon(section)
-    minx, miny, maxx, maxy = sct.bounds
+def DistanceFrom(section: Polygon, dist: float, position: str="top") -> ListOfPoints:
+    minx, miny, maxx, maxy = section.bounds
     if (position == "top" or position=="bottom") and (dist > maxy-miny): 
         raise ValueError("distance is greater than height of shape.")
     if (position == "right" or position=="left") and (dist > maxx-minx): 
@@ -98,16 +90,16 @@ def DistanceFrom(section: ListOfPoints, dist: float, position: str="top") -> Lis
             LineString([(maxx+10, miny+dist), (minx-10, miny+dist)]) if position=="bottom" else\
             LineString([(maxx-dist, maxy+10), (maxx-dist, miny-10)]) if position=="right" else\
             LineString([(minx+dist, maxy+10), (minx+dist, miny-10)]) if position=="left" else None
-    return list(sct.intersection(line).coords)
+    return list(section.intersection(line).coords)
 
 
-def Edge(section: list, position: str = "top"):
-    sct = Polygon(section)
-    minx, miny, maxx, maxy = sct.bounds
-    Points = [point for point in section if point[1]==maxy] if position=="top" else\
-                [point for point in section if point[1]==miny] if position=="bottom" else\
-                [point for point in section if point[0]==maxx] if position=="right" else\
-                [point for point in section if point[0]==minx] if position=="left" else None
+def Edge(section: Polygon, position: str = "top"):
+    coords = list(section.exterior.coords)
+    minx, miny, maxx, maxy = section.bounds
+    Points = [point for point in coords if point[1]==maxy] if position=="top" else\
+                [point for point in coords if point[1]==miny] if position=="bottom" else\
+                [point for point in coords if point[0]==maxx] if position=="right" else\
+                [point for point in coords if point[0]==minx] if position=="left" else None
     spoint1 = (0, 0)
     spoint2 = (0, 0)
     IsThreePoint: bool = False
@@ -117,13 +109,13 @@ def Edge(section: list, position: str = "top"):
     else:
         firstPoint = Points[0]
         secondPoint = (0, 0)
-        if section.index(firstPoint)==0:
-            secondPoint = section[section.index(firstPoint)+1]
-        elif section.index(firstPoint)==len(section)-1:
-            secondPoint = section[section.index(firstPoint)-1]
+        if coords.index(firstPoint)==0:
+            secondPoint = coords[coords.index(firstPoint)+1]
+        elif coords.index(firstPoint)==len(coords)-1:
+            secondPoint = coords[coords.index(firstPoint)-1]
         else:
-            spoint1 = section[section.index(firstPoint)-1]
-            spoint2 = section[section.index(firstPoint)+1]
+            spoint1 = coords[coords.index(firstPoint)-1]
+            spoint2 = coords[coords.index(firstPoint)+1]
             if position == "top":
                 IsThreePoint = firstPoint[1]-spoint1[1] == firstPoint[1]-spoint2[1]
                 secondPoint = spoint1 if firstPoint[1]-spoint1[1] < firstPoint[1]-spoint2[1] else spoint2

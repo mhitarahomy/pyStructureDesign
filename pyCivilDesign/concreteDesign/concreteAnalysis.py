@@ -20,12 +20,12 @@ def setAs(data: DesignData, As: NDArray[np.float32]) -> DesignData:
 
 
 def setAsPercent(data: DesignData, percent: float) -> DesignData:
-    totalAs = Polygon(data.section).area * (percent/100)
+    totalAs = data.section.area * (percent/100)
     return setAs(data, np.array([totalAs/ len(data.Coords) for i in range(len(data.As))]))
 
 
 def AsPercent(data: DesignData) -> np.float32:
-    return (np.sum(data.As)/Polygon(data.section).area)*100
+    return (np.sum(data.As)/data.section.area)*100
 
 
 def onePercentData(data: DesignData) -> DesignData:
@@ -37,7 +37,7 @@ def eightPercentAnalysis(data: DesignData) -> DesignData:
 
 
 def P0(data: DesignData) -> np.float32:
-    return 0.65 * (0.85 * data.fc * (Polygon(data.section).area - sum(data.As))\
+    return 0.65 * (0.85 * data.fc * (data.section.area - sum(data.As))\
                    + sum(data.As)*data.fy)
 
 
@@ -89,9 +89,8 @@ def AngleFromAlpha(data:DesignData, P:float, alpha:float,
     return output.x[0]
 
 
-def rotateSection(data: DesignData, angle: float) -> NDArray[np.float32]:
-    rsection: Polygon = rotate(Polygon(data.section), angle, origin=Point([0, 0]))
-    return np.array(rsection.exterior.coords)
+def rotateSection(data: DesignData, angle: float) -> Polygon:
+    return rotate(data.section, angle, origin=Point([0, 0]))
 
 
 def rotateRebarCoords(data: DesignData, angle: float) -> NDArray[np.float32]:
@@ -101,14 +100,14 @@ def rotateRebarCoords(data: DesignData, angle: float) -> NDArray[np.float32]:
 
 
 def NeutralAxis(data: DesignData, c: float, angle: float) -> NDArray[np.float32]:
-    rSection: Polygon = Polygon(rotateSection(data, angle))
+    rSection: Polygon = rotateSection(data, angle)
     minx, _, maxx, maxy = rSection.bounds
     line: LineString = LineString([(maxx+10, maxy-c), (minx-10, maxy-c)])
     return np.array(line.coords)
 
 
-def NeutralRegion(data: DesignData, c: float, angle: float) -> NDArray[np.float32]:
-    rSection = Polygon(rotateSection(data, angle))
+def NeutralRegion(data: DesignData, c: float, angle: float) -> Polygon:
+    rSection = rotateSection(data, angle)
     minx, _, maxx, maxy = rSection.bounds
     topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-c),
                       (minx-10, maxy-c), (minx-10, maxy)])
@@ -116,12 +115,12 @@ def NeutralRegion(data: DesignData, c: float, angle: float) -> NDArray[np.float3
     unioned = rSection.boundary.union(NL)
     NR: List[Polygon] = [poly for poly in polygonize(unioned)\
                          if poly.representative_point().within(topArea)]
-    return np.array(NR[0].exterior.coords)
+    return NR[0]
 
 
 def MaxPressurePoint(data: DesignData, c: float, angle: float) -> np.float32:
     NL: LineString = LineString(NeutralAxis(data, c, angle))
-    NR: Polygon = Polygon(NeutralRegion(data, c, angle))
+    NR: Polygon = NeutralRegion(data, c, angle)
     return np.max([NL.distance(Point(p)) for p in list(NR.exterior.coords)])
 
 
@@ -135,8 +134,8 @@ def PressureAxis(data: DesignData, c: float, angle: float,
 
 
 def PressureRegion(data: DesignData, c: float, angle: float,
-                   assump:Assumptions=defaultAssumption) -> NDArray[np.float32]:
-    rSection: Polygon = Polygon(rotateSection(data, angle))
+                   assump:Assumptions=defaultAssumption) -> Polygon:
+    rSection: Polygon = rotateSection(data, angle)
     minx, _, maxx, maxy = rSection.bounds
     topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-(0.85*c)),
                       (minx-10, maxy-(0.85*c)), (minx-10, maxy)])
@@ -144,7 +143,7 @@ def PressureRegion(data: DesignData, c: float, angle: float,
     unioned = rSection.boundary.union(PL)
     PR: List[Polygon] = [poly for poly in polygonize(unioned) if \
           poly.representative_point().within(topArea)]
-    return np.array(PR[0].exterior.coords)
+    return PR[0]
 
 
 def es(data: DesignData, c: float, angle: float, 
@@ -152,7 +151,7 @@ def es(data: DesignData, c: float, angle: float,
     rCoords: NDArray[np.float32] = rotateRebarCoords(data, angle)
     NL: LineString = LineString(NeutralAxis(data, c, angle))
     MaxPrPoint: np.float32 = MaxPressurePoint(data, c, angle)
-    NR: Polygon = Polygon(NeutralRegion(data, c, angle))
+    NR: Polygon = NeutralRegion(data, c, angle)
     esSign = [1 if NR.contains(Point(point)) else -1 for point in rCoords]
     return np.array([((esSign[i]*NL.distance(Point(rCoords[i])))/MaxPrPoint)*assump.ecu \
         for i in range(len(rCoords))])
@@ -162,7 +161,7 @@ def ec(data: DesignData, c: float, angle: float, point: Tuple[float, float],
        assump:Assumptions=defaultAssumption) -> np.float32:
     NL: LineString = LineString(NeutralAxis(data, c, angle))
     MaxPrPoint: np.float32 = MaxPressurePoint(data, c, angle)
-    NR: Polygon = Polygon(NeutralRegion(data, c, angle))
+    NR: Polygon = NeutralRegion(data, c, angle)
     ecSign = 1 if NR.contains(Point(point)) else -1
     return ((ecSign * NL.distance(Point(point)))/MaxPrPoint)*assump.ecu
 
@@ -181,7 +180,7 @@ def Fs(data: DesignData, c: float, angle: float,
 
 
 def Cc(data: DesignData, c: float, angle: float, assump:Assumptions=defaultAssumption) -> np.float32:
-    _Cc = 0.85 * data.fc * Polygon(PressureRegion(data, c, angle, assump)).area
+    _Cc = 0.85 * data.fc * PressureRegion(data, c, angle, assump).area
     return _Cc
 
 
@@ -200,7 +199,7 @@ def M(data: DesignData, c: float, angle: float,
     signY = 1 if (0<=angle<=180) else -1
     _Fszx, _Fszy = Fsz(data, c, angle, assump)
     _Cc = Cc(data, c, angle, assump)
-    rPr = rotate(Polygon(PressureRegion(data, c, angle, assump)), -angle, Point([0, 0]))
+    rPr = rotate(PressureRegion(data, c, angle, assump), -angle, Point([0, 0]))
     _zcy = abs(rPr.centroid.y)
     _zcx = abs(rPr.centroid.x)
     _es = es(data, c, angle, assump)
@@ -231,7 +230,7 @@ def OptimF(x, *args):
 
 def C(data: DesignData, P: float, angle: float, 
       assump:Assumptions=defaultAssumption) -> np.float32:
-    _, miny, _, maxy = Polygon(rotateSection(data, angle)).bounds
+    _, miny, _, maxy = rotateSection(data, angle).bounds
     return least_squares(OptimF, ((maxy-miny)*2.5), 
                          bounds=((0.00001), (5*(maxy-miny))), 
                          args=(P, angle, data, assump)).x[0]
@@ -242,7 +241,7 @@ def OptimMaxM(x, *args):
     _angle = args[0]
     _data = args[1]
     _assump = args[2]
-    rSection = Polygon(rotateSection(_data, _angle))
+    rSection = rotateSection(_data, _angle)
     _, miny, _, maxy = rSection.bounds
     _c = least_squares(OptimF, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), 
                        args=(_P, _angle, _data, _assump)).x[0]
@@ -261,7 +260,7 @@ def OptimM(x, *args):
     _e0 = args[1]
     _data = args[2]
     _assump = args[3]
-    rSection = Polygon(rotateSection(_data, _angle))
+    rSection = rotateSection(_data, _angle)
     _, miny, _, maxy = rSection.bounds
     _c = least_squares(OptimF, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), 
                        args=(_P, _angle, _data, _assump)).x[0]

@@ -3,11 +3,12 @@ from typing import Callable
 from pyCivilDesign.sections.concreteSections import ConcreteSct
 import numpy as np
 from numpy.typing import NDArray
+from shapely import Polygon
 
 
 @dataclass(kw_only=True)
 class DesignData():
-    section: NDArray[np.float32]
+    section: Polygon
     bw: np.float32
     d: np.float32
     fy: np.float32
@@ -44,6 +45,6 @@ defaultAssumption = Assumptions()
 
 def setDesignDataFromSection(sct: ConcreteSct) -> DesignData:
     return DesignData(
-        section=np.array(sct.section), bw=np.float32(sct.bw), d=np.float32(sct.d), fy=np.float32(sct.lBarMat.fy), 
+        section=sct.section, bw=np.float32(sct.bw), d=np.float32(sct.d), fy=np.float32(sct.lBarMat.fy), 
         fyt=np.float32(sct.cBarMat.fy),fc=np.float32(sct.concMat.fc), 
         Coords=np.array(sct.Coords), As=np.array(sct.As), Es=np.float32(sct.lBarMat.Es))
