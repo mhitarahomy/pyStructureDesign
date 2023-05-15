@@ -199,6 +199,6 @@ def showSection(concSct: ConcreteSct) -> None:
         plot_points([Point(rcoord.point) for rcoord in concSct.rebarCoords], color='black')
         for i in range(len(concSct.rebarCoords)):
             rcoord = concSct.rebarCoords[i]
-            ax.annotate(f"{rcoord.rebar}\n{i}", xy=(rcoord.point[0], rcoord.point[1]), xycoords='data',
+            ax.annotate(f"{rcoord.rebar}\n{i}", xy=(rcoord.point.x, rcoord.point.y), xycoords='data',
                     xytext=(1.5, -10), textcoords='offset points')
     plt.show()
