@@ -6,7 +6,7 @@ from math import pi, ceil
 from shapely import Polygon, LineString, Point
 from shapely.affinity import rotate
 
-from pyCivilDesign.sections.section import ListOfPoints
+from pyCivilDesign.sections.section import ListOfPoints, Edge
 
 # region Rebar Sections
 @dataclass
@@ -164,8 +164,10 @@ def QuadrilateralRebars(barShape: List[List[Rebar|GRebars]], cover: Tuple[float,
     barsNumList: list[int] = [len(s) for s in barShape]
     coords0 = list(line0.coords)
     coords1 = list(line1.coords)
-    line00 = LineString(coords0.sort(key=lambda x: x[1], reverse=True))
-    line11 = LineString(coords1.sort(key=lambda x: x[1], reverse=True))
+    print(sorted(coords0, key=lambda x: x[1], reverse=True))
+    print(sorted(coords1, key=lambda x: x[1], reverse=True))
+    line00 = LineString(sorted(coords0, key=lambda x: x[1], reverse=True))
+    line11 = LineString(sorted(coords1, key=lambda x: x[1], reverse=True))
     sline = CreateLineWithCover(line00, _cover[0], _cover[1])
     eline = CreateLineWithCover(line11, _cover[0], _cover[1])
     d = ([i / (len(barsNumList)-1) for i in range(len(barsNumList))]
@@ -182,16 +184,34 @@ def QuadrilateralRebars(barShape: List[List[Rebar|GRebars]], cover: Tuple[float,
     return rebarCoords
 
 
-# def RectSectRebars(section: ListOfPoints, xNum: int, yNum: int, rebar: Rebar|GRebars, cover: Cover|float|int):
-#     rshape = QuadrilateralRebarShape(xNum, yNum, rebar)
-#     return QuadrilateralRebars(rshape, cover, section)
+def RectRebarsSct(section: Polygon, xNum: int, yNum: int, rebar: Rebar|GRebars,
+                  cover: Tuple[float, float, float, float]|float|int) -> List[RebarCoords]:
+    rshape = QuadrilateralRebarShape(xNum, yNum, rebar)
+    rEdge = Edge(section, "right")
+    lEdge = Edge(section, "left")
+    return QuadrilateralRebars(rshape, cover, rEdge, lEdge)
 
 
-def CircularBars(barShape: List[Rebar|GRebars], cover: float, D: float) -> List[RebarCoords]:
-    barsNum = len(barShape)
+def TrapzoidRebarsSct(section: Polygon, xNum: int, yNum: int, rebar: Rebar|GRebars,
+                      cover: Tuple[float, float, float, float]|float|int) -> List[RebarCoords]:
+    return RectRebarsSct(section, xNum, yNum, rebar, cover)
+
+
+def TShapeRebarsSct(section: Polygon, xNum: int, yNum: int, rebar: Rebar|GRebars,
+                      cover: Tuple[float, float, float, float]|float|int):
+    pass
+
+
+def LShapeRebarsSct(section: Polygon, xNum: int, yNum: int, rebar: Rebar|GRebars,
+                      cover: Tuple[float, float, float, float]|float|int):
+    pass
+
+
+def CircRebarsSct(D: float, num: int, rebar: Rebar|GRebars, cover: float) -> List[RebarCoords]:
+    rshape = CircularRebarShape(num, rebar)
     r = (D/2) - cover
-    alphas = [i * (360/barsNum) for i in range(barsNum)]
-    return [RebarCoords(rebar=barShape[i], point=rotate(Point(0, r), alphas[i], Point(0, 0))) for i in range(barsNum)]
+    alphas = [i * (360/num) for i in range(num)]
+    return [RebarCoords(rebar=rshape[i], point=rotate(Point(0, r), alphas[i], Point(0, 0))) for i in range(num)]
 
 
 def DeleteRebars(rebarCoords: List[RebarCoords], *args: int) -> List[RebarCoords]:
