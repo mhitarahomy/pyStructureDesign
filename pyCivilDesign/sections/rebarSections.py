@@ -192,16 +192,19 @@ def RectRebarsSct(section: Polygon, xNum: int, yNum: int, rebar: Rebar|GRebars,
     return QuadrilateralRebars(rshape, cover, rEdge, lEdge)
 
 
+# * This function is like RectRebarsSct
 def TrapzoidRebarsSct(section: Polygon, xNum: int, yNum: int, rebar: Rebar|GRebars,
                       cover: Tuple[float, float, float, float]|float|int) -> List[RebarCoords]:
     return RectRebarsSct(section, xNum, yNum, rebar, cover)
 
 
+# ToDo: Set TShape concrete sections rebars section
 def TShapeRebarsSct(section: Polygon, xNum: int, yNum: int, rebar: Rebar|GRebars,
                       cover: Tuple[float, float, float, float]|float|int):
     pass
 
 
+# ToDo: Set LShape concrete sections rebars section
 def LShapeRebarsSct(section: Polygon, xNum: int, yNum: int, rebar: Rebar|GRebars,
                       cover: Tuple[float, float, float, float]|float|int):
     pass
