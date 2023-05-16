@@ -10,12 +10,14 @@ from pyCivilDesign.sections.rebarSections import RebarCoords
 import pyCivilDesign.sections.section as Sct 
 
 
+# * This lambdas is for use in field default_factory 
 ListOfPoints = List[Tuple[float, float]]
 C25def = lambda: C25
 AIIdef = lambda: AII
 AIIIdef = lambda: AIII
 
 
+# ! Do not use this dataclass for create concrete sections
 @dataclass()
 class ConcreteSct():
     section: Polygon

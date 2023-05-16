@@ -6,7 +6,7 @@ from shapely import Point, LineString, Polygon
 from shapely.affinity import translate, rotate
 
 
-ListOfPoints = List[Tuple[float, float]]
+# ListOfPoints = List[Tuple[float, float]]
 
 class SectionType(StrEnum):
     Triangle = auto()
@@ -80,7 +80,7 @@ def CreateEllipseSct(a: float, b: float) -> Polygon:
     return Polygon([(a*cos(t), b*sin(t)) for t in theta])
 
 
-def DistanceFrom(section: Polygon, dist: float, position: str="top") -> ListOfPoints:
+def DistanceFrom(section: Polygon, dist: float, position: str="top") -> LineString:
     minx, miny, maxx, maxy = section.bounds
     if (position == "top" or position=="bottom") and (dist > maxy-miny): 
         raise ValueError("distance is greater than height of shape.")
@@ -90,7 +90,7 @@ def DistanceFrom(section: Polygon, dist: float, position: str="top") -> ListOfPo
             LineString([(maxx+10, miny+dist), (minx-10, miny+dist)]) if position=="bottom" else\
             LineString([(maxx-dist, maxy+10), (maxx-dist, miny-10)]) if position=="right" else\
             LineString([(minx+dist, maxy+10), (minx+dist, miny-10)]) if position=="left" else None
-    return list(section.intersection(line).coords)
+    return section.intersection(line)
 
 
 def Edge(section: Polygon, position: str = "top") -> LineString:

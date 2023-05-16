@@ -15,8 +15,8 @@ from pyCivilDesign.concreteDesign.designProps import Assumptions, defaultAssumpt
 
    
 def setAs(data: DesignData, As: NDArray[np.float32]) -> DesignData:
-    return DesignData(section=data.section, bw=data.bw, d=data.d, fy= data.fy, fyt=data.fyt,
-                      fc=data.fc, Coords=data.Coords, As=As, Es=data.Es)
+    return DesignData(section=data.section, bw=data.bw, d=data.d, fy= data.fy, 
+                      fyt=data.fyt, fc=data.fc, Coords=data.Coords, As=As, Es=data.Es)
 
 
 def setAsPercent(data: DesignData, percent: float) -> DesignData:
@@ -32,7 +32,7 @@ def onePercentData(data: DesignData) -> DesignData:
     return setAsPercent(data, 1)
 
 
-def eightPercentAnalysis(data: DesignData) -> DesignData:
+def eightPercentData(data: DesignData) -> DesignData:
     return setAsPercent(data, 8)
 
 
