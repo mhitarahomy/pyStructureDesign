@@ -211,15 +211,17 @@ def QuadrilateralRebars(barShape: List[List[Rebar|GRebars]], cover: Tuple[float,
     barsNumList: list[int] = [len(s) for s in barShape]
     coords0 = list(line0.coords)
     coords1 = list(line1.coords)
-    print(sorted(coords0, key=lambda x: x[1], reverse=True))
-    print(sorted(coords1, key=lambda x: x[1], reverse=True))
+    #* create lines with coord that sort with y axis descending
     line00 = LineString(sorted(coords0, key=lambda x: x[1], reverse=True))
     line11 = LineString(sorted(coords1, key=lambda x: x[1], reverse=True))
+    #* apply top & bottom covers to lines
     sline = CreateLineWithCover(line00, _cover[0], _cover[1])
     eline = CreateLineWithCover(line11, _cover[0], _cover[1])
+    #* generate horizontal lines distances
     d = ([i / (len(barsNumList)-1) for i in range(len(barsNumList))]
          if len(barsNumList) != 1 else [0.5]) if layerDistances == None else layerDistances
     rebarCoords = []
+    #* generate rebars & coords on each horizontal lines
     for i in range(len(barsNumList)):
         pStart: Point = sline.interpolate(d[i], normalized=True)
         pEnd: Point = eline.interpolate(d[i], normalized=True)
@@ -267,14 +269,12 @@ def TrapzoidRebarsSct(section: Polygon, xNum: int, yNum: int, rebar: Rebar|GReba
 
 
 # TODO: Set TShape concrete sections rebars section
-# ? How is the TShape reinforcing?
-def TShapeRebarsSct(section: Polygon, xNum: int, yNum: int, rebar: Rebar|GRebars,
+def TShapeWebRebarsSct(section: Polygon, xNum: int, yNum: int, rebar: Rebar|GRebars,
                       cover: Tuple[float, float, float, float]|float|int):
     pass
 
 
 # TODO: Set LShape concrete sections rebars section
-# ? How is the LShape reinforcing?
 def LShapeRebarsSct(section: Polygon, xNum: int, yNum: int, rebar: Rebar|GRebars,
                       cover: Tuple[float, float, float, float]|float|int):
     pass
@@ -308,8 +308,21 @@ def CircRebarsSct(D: float, num: int, rebar: Rebar|GRebars,
                               for i in range(num)]
 
 
-def DeleteRebars(rebarCoords: List[RebarCoords], *args: int)\
-      -> List[RebarCoords]:
+def DeleteRebars(rebarCoords: List[RebarCoords], *args: int)-> List[RebarCoords]:
+    """Delete rebar & coord from list of rebar & coords
+
+    Parameters
+    ----------
+    rebarCoords : List[RebarCoords]
+        List of rebar & coords
+
+    args : int
+        indedx of rebar & coords that must removed
+    Returns
+    -------
+    List[RebarCoords]
+        list of rebar & coords that items removed
+    """
     output = rebarCoords
     for index in sorted(args, reverse=True):
             del output[index]
