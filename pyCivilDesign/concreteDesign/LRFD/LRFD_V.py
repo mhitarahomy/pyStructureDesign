@@ -1,1 +1,0 @@
-# TODO: Shear & Torsion functions must be here

@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 from math import sqrt
 from typing import Tuple, List
 from matplotlib import pyplot as plt
@@ -13,7 +14,7 @@ from scipy.optimize import least_squares, minimize
 
 from pyCivilDesign.concreteDesign.designProps import Assumptions, defaultAssumption, DesignData
 
-   
+
 def setAs(data: DesignData, As: NDArray[np.float32]) -> DesignData:
     return DesignData(section=data.section, bw=data.bw, d=data.d, fy= data.fy, 
                       fyt=data.fyt, fc=data.fc, Coords=data.Coords, As=As, Es=data.Es)
@@ -22,6 +23,10 @@ def setAs(data: DesignData, As: NDArray[np.float32]) -> DesignData:
 def setAsPercent(data: DesignData, percent: float) -> DesignData:
     totalAs = data.section.area * (percent/100)
     return setAs(data, np.array([totalAs/ len(data.Coords) for i in range(len(data.As))]))
+
+
+def getAsPercent(data: DesignData) -> np.float32:
+    return (np.sum(data.As) / data.section.area) * 100
 
 
 def AsPercent(data: DesignData) -> np.float32:
@@ -187,8 +192,8 @@ def Cc(data: DesignData, c: float, angle: float, assump:Assumptions=defaultAssum
 def Fsz(data: DesignData, c: float, angle: float, 
         assump:Assumptions=defaultAssumption) -> Tuple[np.float32, np.float32]:
     _Fs = Fs(data, c, angle, assump)
-    xCoords = data.Coords[:,0]
-    yCoords = data.Coords[:,1]
+    xCoords = [point.x for point in data.Coords] #data.Coords[:,0]
+    yCoords = [point.y for point in data.Coords] #data.Coords[:,1]
     return np.sum(_Fs * xCoords), np.sum(_Fs * yCoords)
 
 
@@ -267,6 +272,7 @@ def OptimM(x, *args):
     return abs(M(_data, _c, _angle, _assump)[0]/_P - _e0)
 
 
+#* c, angle, alpha, es, fs, Fs, Cc, P, M, Mx, My, ratio
 def CalcPMRatio(data: DesignData, P: float, Mx: float, My: float, 
                 assump:Assumptions=defaultAssumption) -> np.float32:
     angle = AngleFromForces(data, P, Mx, My, assump)
@@ -278,6 +284,7 @@ def CalcPMRatio(data: DesignData, P: float, Mx: float, My: float,
     return np.float32(P/_P if (P/_P) != 0 else M/_M)
 
 
+#* c, angle, alpha, es, fs, Fs, Cc, P, M, Mx, My 
 def CalcMn(data: DesignData, P: float, angle: float, 
            assump:Assumptions=defaultAssumption) -> Tuple[np.float32, np.float32,
                                                           np.float32, np.float32]:
@@ -298,10 +305,11 @@ def OptimPercent(x, *args):
     return abs(CalcPMRatio(Data, P, Mx, My, assump) - 1)
 
 
-def CalcPercent(data:DesignData, P: float, Mx: float, My: float, 
+#* c, angle, alpha, es, fs, Fs, Cc, P, M, Mx, My, percent
+def CalcAsPercent(data:DesignData, P: float, Mx: float, My: float, # [ ] BUG: not work!
                 assump: Assumptions=defaultAssumption) -> np.float32:
     return least_squares(OptimPercent, (1,), bounds=((1,), (8,)),
-                         args=(P, Mx, My, data, assump)).x[0]
+                         args=(P, Mx, My, data, assump))
 
 
 def showResult(data: DesignData, P, Mx, My, assump:Assumptions=defaultAssumption):
@@ -342,12 +350,3 @@ def showResult(data: DesignData, P, Mx, My, assump:Assumptions=defaultAssumption
     ax2.grid(True)
     
     plt.show()
-
-# ! must remove from here
-def Av_S_Min(data: DesignData): 
-    return max(0.062*np.sqrt(data.fc)*(data.bw/data.fyt), 0.35*(data.bw/data.fyt))
-
-
-# ! must remove from here
-def VcMax(data: DesignData): 
-    return 0.42*sqrt(data.fc) * data.bw * data.d
