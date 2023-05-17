@@ -309,7 +309,7 @@ def OptimPercent(x, *args):
 def CalcAsPercent(data:DesignData, P: float, Mx: float, My: float, # [ ] BUG: not work!
                 assump: Assumptions=defaultAssumption) -> np.float32:
     return least_squares(OptimPercent, (1,), bounds=((1,), (8,)),
-                         args=(P, Mx, My, data, assump))
+                         args=(P, Mx, My, data, assump)).x[0]
 
 
 def showResult(data: DesignData, P, Mx, My, assump:Assumptions=defaultAssumption):

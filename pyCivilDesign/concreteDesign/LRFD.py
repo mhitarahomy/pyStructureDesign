@@ -22,7 +22,20 @@ class PMMresults():
     My: np.float32
     AsPercent: np.float32
     msg: str
-    ratio: np.float32|None = field(default= None)
+    ratio: np.float32
+
+    def __repr__(self) -> str:
+        return f'''c = {round(self.c, 0)} mm
+angle = {round(self.angle, 2)} degree
+alpha = {round(self.alpha, 2)} degree
+es = {np.round(self.es, 5)}
+fs = {np.round(self.fs, 0)} N/mm2
+Fs = {np.round(self.Fs, 0)} N
+Cc = {round(self.Cc, 0)} N   P = {round(self.P/1000, 0)} kN
+M = {round(self.M/1000000, 0)} kN.m   Mx = {round(self.Mx/1000000, 0)} kN.m   My = {round(self.My/1000000, 0)} kN.m
+AsPercent = {round(self.AsPercent, 2)} %
+msg = {self.msg}
+ratio = {round(self.ratio, 2)}'''
 
 
 def PMRatio(data: DesignData, P: float, Mx: float, My: float, 
@@ -50,7 +63,7 @@ def Mn(data: DesignData, P: float, angle: float,
     _Fs = PMMsolver.Fs(data, c, angle, assump)
     _Cc = PMMsolver.Cc(data, c, angle, assump)
     _percent = PMMsolver.getAsPercent(data)
-    return PMMresults(c, angle, alpha, _es, _fs, _Fs, _Cc, P, _M, _Mx, _My, _percent, "") # type: ignore
+    return PMMresults(c, angle, alpha, _es, _fs, _Fs, _Cc, P, _M, _Mx, _My, _percent, "", 0) # type: ignore
     
 
 def AsPercent(data:DesignData, P: float, Mx: float, My: float,
@@ -65,4 +78,4 @@ def AsPercent(data:DesignData, P: float, Mx: float, My: float,
     _fs = PMMsolver.fs(data, c, angle, assump)
     _Fs = PMMsolver.Fs(data, c, angle, assump)
     _Cc = PMMsolver.Cc(data, c, angle, assump)
-    return PMMresults(c, angle, alpha, _es, _fs, _Fs, _Cc, P, _M, Mx, My, _percent, "") # type: ignore
+    return PMMresults(c, angle, alpha, _es, _fs, _Fs, _Cc, P, _M, Mx, My, _percent, "", 0) # type: ignore
