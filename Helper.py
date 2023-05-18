@@ -12,7 +12,9 @@ sct.rebarCoords = Rsct.RectRebarsSct(sct.section, 5, 4, d20, 50)
 data = setDesignDataFromSection(sct)
 print(PMMsolver.getAsPercent(data))
 
-# data = PMMsolver.setAsPercent(data, 2.03359)
-# print(PMMsolver.CalcPMRatio(data, 3e6, 6e8, 5e8))
+data = PMMsolver.setAsPercent(data, 2.03359)
+result = LRFDsolver.PMRatio(data, 3e6, 6e8, 5e8)
 
-print(PMMsolver.CalcAsPercent(data, 3e6, 6e8, 5e8))
+LRFDsolver.showResult(data, result)
+
+# print(PMMsolver.CalcAsPercent(data, 3e6, 6e8, 5e8))

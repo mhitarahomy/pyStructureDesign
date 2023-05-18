@@ -10,7 +10,7 @@ from shapely import Polygon, LineString, Point
 from shapely.affinity import rotate
 from shapely.ops import polygonize
 
-from scipy.optimize import least_squares, minimize
+from scipy.optimize import least_squares, minimize, root
 
 from pyCivilDesign.concreteDesign.designProps import Assumptions, defaultAssumption, DesignData
 
@@ -267,8 +267,10 @@ def OptimM(x, *args):
     _assump = args[3]
     rSection = rotateSection(_data, _angle)
     _, miny, _, maxy = rSection.bounds
-    _c = least_squares(OptimF, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), #[ ] TODO: must be faster
-                       args=(_P, _angle, _data, _assump)).x[0]
+    #[ ] TODO: must be faster
+    # _c = least_squares(OptimF, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), 
+                    #    args=(_P, _angle, _data, _assump)).x[0]
+    _c = root(OptimF, ((maxy-miny)/2), args=(_P, _angle, _data, _assump)).x[0]
     return abs(M(_data, _c, _angle, _assump)[0]/_P - _e0)
 
 
@@ -277,9 +279,11 @@ def CalcPMRatio(data: DesignData, P: float, Mx: float, My: float,
                 assump:Assumptions=defaultAssumption) -> np.float32:
     angle = AngleFromForces(data, P, Mx, My, assump)
     M = pow(Mx**2 + My**2, 0.5)
-    _P = least_squares(OptimM, ((P0(data)+PtMax(data))/2), #[ ] TODO: must be faster
-                       bounds=((PtMax(data)), (P0(data))), 
-                       args=(angle, M/P, data, assump)).x[0] if P != 0 else 1
+    #[ ] TODO: must be faster
+    # _P = least_squares(OptimM, ((P0(data)+PtMax(data))/2), 
+    #                    bounds=((PtMax(data)), (P0(data))), 
+    #                    args=(angle, M/P, data, assump)).x[0] if P != 0 else 1
+    _P = root(OptimM,(P0(data)+PtMax(data))/2, args=(angle, M/P, data, assump)).x[0] if P!=0 else 1
     _M = CalcMn(data, _P, angle, assump)[0] # type: ignore
     return np.float32(P/_P if (P/_P) != 0 else M/_M)
 
@@ -302,7 +306,7 @@ def OptimPercent(x, *args):
     data = args[3]
     assump = args[4]
     Data = setAsPercent(data, percent)
-    return (CalcPMRatio(Data, P, Mx, My, assump) - 1)
+    return CalcPMRatio(Data, P, Mx, My, assump) - 1
 
 
 #* c, angle, alpha, es, fs, Fs, Cc, P, M, Mx, My, percent
@@ -319,5 +323,4 @@ def CalcAsPercent(data:DesignData, P: float, Mx: float, My: float, # [x] BUG: no
         maxPercent = (maxPercent + minPercent)/2 if e<0 else maxPercent
         minPercent = minPercent if e<0 else (maxPercent + minPercent)/2
     return percent
-    # return least_squares(OptimPercent, (4,), bounds=((0.1,), (10,)), gtol=1e-15,
-    #                      args=(P, Mx, My, data, assump))
+    # return root(OptimPercent, (4,), args=(P, Mx, My, data, assump)).x[0]
