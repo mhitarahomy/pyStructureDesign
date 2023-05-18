@@ -22,7 +22,7 @@ def setAs(data: DesignData, As: NDArray[np.float32]) -> DesignData:
 
 def setAsPercent(data: DesignData, percent: float) -> DesignData:
     totalAs = data.section.area * (percent/100)
-    return setAs(data, np.array([totalAs/ len(data.Coords) for i in range(len(data.As))]))
+    return setAs(data, np.array([totalAs/ len(data.As) for i in range(len(data.As))]))
 
 
 def getAsPercent(data: DesignData) -> np.float32:
@@ -267,7 +267,7 @@ def OptimM(x, *args):
     _assump = args[3]
     rSection = rotateSection(_data, _angle)
     _, miny, _, maxy = rSection.bounds
-    _c = least_squares(OptimF, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), 
+    _c = least_squares(OptimF, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), #[ ] TODO: must be faster
                        args=(_P, _angle, _data, _assump)).x[0]
     return abs(M(_data, _c, _angle, _assump)[0]/_P - _e0)
 
@@ -277,7 +277,7 @@ def CalcPMRatio(data: DesignData, P: float, Mx: float, My: float,
                 assump:Assumptions=defaultAssumption) -> np.float32:
     angle = AngleFromForces(data, P, Mx, My, assump)
     M = pow(Mx**2 + My**2, 0.5)
-    _P = least_squares(OptimM, ((P0(data)+PtMax(data))/2), 
+    _P = least_squares(OptimM, ((P0(data)+PtMax(data))/2), #[ ] TODO: must be faster
                        bounds=((PtMax(data)), (P0(data))), 
                        args=(angle, M/P, data, assump)).x[0] if P != 0 else 1
     _M = CalcMn(data, _P, angle, assump)[0] # type: ignore
@@ -302,51 +302,22 @@ def OptimPercent(x, *args):
     data = args[3]
     assump = args[4]
     Data = setAsPercent(data, percent)
-    return abs(CalcPMRatio(Data, P, Mx, My, assump) - 1)
+    return (CalcPMRatio(Data, P, Mx, My, assump) - 1)
 
 
 #* c, angle, alpha, es, fs, Fs, Cc, P, M, Mx, My, percent
-def CalcAsPercent(data:DesignData, P: float, Mx: float, My: float, # [ ] BUG: not work!
+def CalcAsPercent(data:DesignData, P: float, Mx: float, My: float, # [x] BUG: not work!
                 assump: Assumptions=defaultAssumption) -> np.float32:
-    return least_squares(OptimPercent, (1,), bounds=((1,), (8,)),
-                         args=(P, Mx, My, data, assump)).x[0]
-
-
-def showResult(data: DesignData, P, Mx, My, assump:Assumptions=defaultAssumption):
-    angle = AngleFromForces(data, P, Mx, My, assump)
-    PointNums = 20
-    Paxis = np.linspace(PtMax(data), P0(data), PointNums, endpoint=True)
-    Maxis = np.array([CalcMn(data, p, angle, assump)[0] for p in Paxis]) # type: ignore
-
-    AlphaNums = 21
-    Alphas = np.linspace(0, 360, AlphaNums)
-    M =  np.array([CalcMn(data, P, alpha, assump) for alpha in Alphas])
-    MxAxis =  np.array([m[1] for m in M])
-    MyAxis =  np.array([m[2] for m in M])
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(17,8))
-    ax1.plot(Maxis, Paxis, linewidth=2.0)
-    ax1.plot(pow(Mx**2+My**2, 0.5), P, '.', color="black", markersize=7)
-    ax1.annotate(f"P={round(P/1000, 2)}kN \nM={round(pow(Mx**2+My**2, 0.5)/1000000, 2)}kN.m \nratio={round(CalcPMRatio(data, P, Mx, My, assump), 2)}",
-                 (pow(Mx**2+My**2, 0.5), P), 
-                 textcoords="offset points", xytext=(5,0), ha="left")
-    ax1.set_title(f"P-M chart for {round(Alpha(data, Mx, My, assump), 2)} degree")
-    ax1.set_xlabel("M (N.mm)")
-    ax1.set_ylabel("P (N)")
-    ax1.axhline(y=0, color='b', linestyle='-')
-    ax1.axvline(x=0, color='b', linestyle='-')
-    ax1.grid(True)
-    
-    ax2.plot(MxAxis, MyAxis, linewidth=2.0)
-    ax2.plot(Mx, My, '.', color="black", markersize=7)
-    ax2.annotate(f"Mx={round(Mx/1000000, 2)}kN.m \nMy={round(My/1000000, 2)}kN.m", (Mx, My), 
-                 textcoords="offset points", xytext=(5,0), ha="left")
-    ax2.set_title(f"Mx-My chart on P={round(P/1000)} kN")
-    ax2.set_xlabel("Mx (N.mm)")
-    ax2.set_ylabel("My (N.mm)")
-    ax2.axhline(y=0, color='b', linestyle='-')
-    ax2.axvline(x=0, color='b', linestyle='-')
-    ax2.axis("equal")
-    ax2.grid(True)
-    
-    plt.show()
+    maxPercent = np.float32(10)
+    minPercent = np.float32(0.1)
+    e = 1
+    percent = np.float32(0)
+    while abs(e) > 0.01:
+        percent = np.float32((maxPercent + minPercent)/2)
+        data = setAsPercent(data, percent) # type: ignore
+        e = CalcPMRatio(data, P, Mx, My, assump) - 1
+        maxPercent = (maxPercent + minPercent)/2 if e<0 else maxPercent
+        minPercent = minPercent if e<0 else (maxPercent + minPercent)/2
+    return percent
+    # return least_squares(OptimPercent, (4,), bounds=((0.1,), (10,)), gtol=1e-15,
+    #                      args=(P, Mx, My, data, assump))
