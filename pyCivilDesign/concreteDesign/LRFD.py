@@ -11,6 +11,9 @@ from pyCivilDesign.sections.concreteSections import ConcreteSct
 
 @dataclass
 class PMMresults():
+    P0: np.float32
+    Pnmax: np.float32
+    Ptmax: np.float32
     c: np.float32
     angle: np.float32
     alpha: np.float32
@@ -49,8 +52,8 @@ def PMM_analyze(section: ConcreteSct, P: float, Mx: float, My: float,
     _fs = PMMsolver.fs(data, _c, _angle, assump)
     _Fs = PMMsolver.Fs(data, _c, _angle, assump)
     _Cc = PMMsolver.Cc(data, _c, _angle, assump)
-    _percent = PMMsolver.getAsPercent(data)
-    return PMMresults(_c, _angle, _alpha, _es, _fs, _Fs, _Cc, P, _M, Mx, My, _percent, "", 0) # type: ignore
+    _percent = PMMsolver.AsPercent(data)
+    return PMMresults(_c, _angle, _alpha, _es, _fs, _Fs, _Cc, P, _M, Mx, My, _percent, "", _ratio) # type: ignore
         
 
 def PMM_design(section: ConcreteSct, P: float, Mx: float, My: float,
@@ -69,41 +72,61 @@ def PMM_design(section: ConcreteSct, P: float, Mx: float, My: float,
     return PMMresults(c, angle, alpha, _es, _fs, _Fs, _Cc, P, _M, Mx, My, _percent, "", 0) # type: ignore
 
 
-def showResult(data: DesignData, result: PMMresults, assump: Assumptions=defaultAssumption):
-    angle = PMMsolver.AngleFromForces(data, result.P, result.Mx, result.My, assump) # type: ignore
+def show_PMM_analysis_result(section: ConcreteSct, P: float, Mx: float, My: float,
+                              assump: Assumptions=defaultAssumption):
+    data = DesignData.fromSection(section)
+    M = pow(Mx**2 + My**2, 0.5)
+    ratio = PMMsolver.CalcPMRatio(data, P, Mx, My, assump)
+
+    angle = PMMsolver.AngleFromForces(data, P, Mx, My, assump) # type: ignore
+    alpha = PMMsolver.Alpha(data, Mx, My, assump)
     PointNums = 20
     Paxis = np.linspace(PMMsolver.PtMax(data), PMMsolver.P0(data), PointNums, endpoint=True)
     Maxis = np.array([PMMsolver.CalcMn(data, p, angle, assump)[0] for p in Paxis]) # type: ignore
 
     AlphaNums = 21
     Alphas = np.linspace(0, 360, AlphaNums)
-    M =  np.array([PMMsolver.CalcMn(data, result.P, alpha, assump) for alpha in Alphas]) # type: ignore
-    MxAxis =  np.array([m[1] for m in M])
-    MyAxis =  np.array([m[2] for m in M])
+    _M =  np.array([PMMsolver.CalcMn(data, P, alpha, assump) for alpha in Alphas]) # type: ignore
+    MxAxis =  np.array([m[1] for m in _M])
+    MyAxis =  np.array([m[2] for m in _M])
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(17,8))
-    ax1.plot(Maxis, Paxis, linewidth=2.0)
-    ax1.plot(result.M, result.P, '.', color="black", markersize=7)
-    ax1.annotate(f"P={round(result.P/1000, 2)}kN \nM={round(result.M/1000000, 2)}kN.m \nratio={round(result.ratio, 2)}",
-                 (result.M, result.P), 
-                 textcoords="offset points", xytext=(5,0), ha="left")
-    ax1.set_title(f"P-M chart for {round(result.alpha, 2)} degree")
-    ax1.set_xlabel("M (N.mm)")
-    ax1.set_ylabel("P (N)")
-    ax1.axhline(y=0, color='b', linestyle='-')
-    ax1.axvline(x=0, color='b', linestyle='-')
-    ax1.grid(True)
+    sectionCoords = np.array(section.section.exterior.coords)
+    sectionXcoords = sectionCoords[:,0]
+    sectionYcoords = sectionCoords[:,1]
     
-    ax2.plot(MxAxis, MyAxis, linewidth=2.0)
-    ax2.plot(result.Mx, result.My, '.', color="black", markersize=7)
-    ax2.annotate(f"Mx={round(result.Mx/1000000, 2)}kN.m \nMy={round(result.My/1000000, 2)}kN.m", (result.Mx, result.My), 
+    fig, axs = plt.subplots(2, 2, figsize=(10,8))
+    axs[0, 0].plot(sectionXcoords, sectionYcoords)
+    axs[0, 0].set_aspect('equal')
+    axs[0, 0].fill(sectionXcoords, sectionYcoords)
+    axs[0, 0].axhline(y=0, color='k', linestyle='-')
+    axs[0, 0].axvline(x=0, color='k', linestyle='-')
+    axs[0, 0].grid(True)
+    
+    axs[0, 1].plot(sectionXcoords, sectionYcoords)
+    axs[0, 1].set_aspect('equal')
+    
+    axs[1, 0].plot(Maxis, Paxis, linewidth=2.0)
+    axs[1, 0].plot(M, P, '.', color="black", markersize=7)
+    axs[1, 0].annotate(f"P={round(P/1000, 2)}kN \nM={round(M/1000000, 2)}kN.m \nratio={round(ratio, 2)}",
+                 (M, P), 
                  textcoords="offset points", xytext=(5,0), ha="left")
-    ax2.set_title(f"Mx-My chart on P={round(result.P/1000)} kN")
-    ax2.set_xlabel("Mx (N.mm)")
-    ax2.set_ylabel("My (N.mm)")
-    ax2.axhline(y=0, color='b', linestyle='-')
-    ax2.axvline(x=0, color='b', linestyle='-')
-    ax2.axis("equal")
-    ax2.grid(True)
+    axs[1, 0].set_title(f"P-M chart for {round(alpha, 2)} degree")
+    axs[1, 0].set_xlabel("M (N.mm)")
+    axs[1, 0].set_ylabel("P (N)")
+    axs[1, 0].axhline(y=0, color='b', linestyle='-')
+    axs[1, 0].axvline(x=0, color='b', linestyle='-')
+    axs[1, 0].grid(True)
+    
+    axs[1, 1].plot(MxAxis, MyAxis, linewidth=2.0)
+    axs[1, 1].plot(Mx, My, '.', color="black", markersize=7)
+    axs[1, 1].annotate(f"Mx={round(Mx/1000000, 2)}kN.m \nMy={round(My/1000000, 2)}kN.m", (Mx, My), 
+                 textcoords="offset points", xytext=(5,0), ha="left")
+    axs[1, 1].set_title(f"Mx-My chart on P={round(P/1000)} kN")
+    axs[1, 1].set_xlabel("Mx (N.mm)")
+    axs[1, 1].set_ylabel("My (N.mm)")
+    axs[1, 1].axhline(y=0, color='b', linestyle='-')
+    axs[1, 1].axvline(x=0, color='b', linestyle='-')
+    axs[1, 1].axis("equal")
+    axs[1, 1].grid(True)
     
     plt.show()

@@ -25,10 +25,6 @@ def setAsPercent(data: DesignData, percent: float) -> DesignData:
     return setAs(data, np.array([totalAs/ len(data.As) for i in range(len(data.As))]))
 
 
-def getAsPercent(data: DesignData) -> np.float32:
-    return (np.sum(data.As) / data.section.area) * 100
-
-
 def AsPercent(data: DesignData) -> np.float32:
     return (np.sum(data.As)/data.section.area)*100
 
