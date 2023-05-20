@@ -9,12 +9,6 @@ d20 = Rsct.d20
 
 sct = RectConcreteSct(b=500, h=700)
 sct.rebarCoords = Rsct.RectRebarsSct(sct.section, 5, 4, d20, 50)
-data = setDesignDataFromSection(sct)
-print(PMMsolver.getAsPercent(data))
-
-data = PMMsolver.setAsPercent(data, 2.03359)
-result = LRFDsolver.PMRatio(data, 3e6, 6e8, 5e8)
-
-LRFDsolver.showResult(data, result)
+print(LRFDsolver.PMM_design(sct, 3e6, 6e8, 5e8))
 
 # print(PMMsolver.CalcAsPercent(data, 3e6, 6e8, 5e8))

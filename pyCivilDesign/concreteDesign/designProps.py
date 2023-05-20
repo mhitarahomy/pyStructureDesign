@@ -18,6 +18,10 @@ class DesignData():
     As: NDArray[np.float32]
     Es: np.float32
 
+    @classmethod
+    def fromSection(cls, section: ConcreteSct):
+        return setDesignDataFromSection(section)
+
 
 beta1: Callable[[DesignData], np.float32] = lambda data: \
     np.float32(0.85) if data.fc<=28 else np.max([0.85-(0.05*(data.fc-28)/7), np.float32(0.65)])

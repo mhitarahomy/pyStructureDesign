@@ -5,7 +5,8 @@ from matplotlib import pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
 import pyCivilDesign.concreteDesign.LRFDmethod.PMMSolver as PMMsolver
-from pyCivilDesign.concreteDesign.designProps import Assumptions, DesignData, defaultAssumption
+from pyCivilDesign.concreteDesign.LRFDmethod.PMMSolver import Assumptions, DesignData, defaultAssumption
+from pyCivilDesign.sections.concreteSections import ConcreteSct
 
 
 @dataclass
@@ -29,9 +30,6 @@ class PMMresults():
         return f'''c = {round(self.c, 0)} mm
 angle = {round(self.angle, 2)} degree
 alpha = {round(self.alpha, 2)} degree
-es = {np.round(self.es, 5)}
-fs = {np.round(self.fs, 0)} N/mm2
-Fs = {np.round(self.Fs, 0)} N
 Cc = {round(self.Cc, 0)} N   P = {round(self.P/1000, 0)} kN
 M = {round(self.M/1000000, 0)} kN.m   Mx = {round(self.Mx/1000000, 0)} kN.m   My = {round(self.My/1000000, 0)} kN.m
 AsPercent = {round(self.AsPercent, 2)} %
@@ -39,8 +37,9 @@ msg = {self.msg}
 ratio = {round(self.ratio, 2)}'''
 
 
-def PMRatio(data: DesignData, P: float, Mx: float, My: float, 
-                assump:Assumptions=defaultAssumption) -> PMMresults:
+def PMM_analyze(section: ConcreteSct, P: float, Mx: float, My: float, 
+                   assump: Assumptions=defaultAssumption):
+    data = DesignData.fromSection(section)
     _ratio = PMMsolver.CalcPMRatio(data, P, Mx, My, assump)
     _M = pow(Mx**2 + My**2, 0.5)
     _angle = float(PMMsolver.AngleFromForces(data, P, Mx, My, assump))
@@ -51,24 +50,12 @@ def PMRatio(data: DesignData, P: float, Mx: float, My: float,
     _Fs = PMMsolver.Fs(data, _c, _angle, assump)
     _Cc = PMMsolver.Cc(data, _c, _angle, assump)
     _percent = PMMsolver.getAsPercent(data)
-    return PMMresults(_c, _angle, _alpha, _es, _fs, _Fs, _Cc, P, _M, Mx, My, _percent, "", _ratio) # type: ignore
+    return PMMresults(_c, _angle, _alpha, _es, _fs, _Fs, _Cc, P, _M, Mx, My, _percent, "", 0) # type: ignore
+        
 
-
-def Mn(data: DesignData, P: float, angle: float, 
-           assump:Assumptions=defaultAssumption) -> PMMresults:
-    c = float(PMMsolver.C(data, P, angle, assump))
-    _M, _Mx, _My = PMMsolver.M(data, c, angle, assump)
-    alpha = PMMsolver.Alpha(data, _Mx, _My, assump) # type: ignore
-    _es = PMMsolver.es(data, c, angle, assump)
-    _fs = PMMsolver.fs(data, c, angle, assump)
-    _Fs = PMMsolver.Fs(data, c, angle, assump)
-    _Cc = PMMsolver.Cc(data, c, angle, assump)
-    _percent = PMMsolver.getAsPercent(data)
-    return PMMresults(c, angle, alpha, _es, _fs, _Fs, _Cc, P, _M, _Mx, _My, _percent, "", 0) # type: ignore
-    
-
-def AsPercent(data:DesignData, P: float, Mx: float, My: float,
-                assump: Assumptions=defaultAssumption) -> PMMresults:
+def PMM_design(section: ConcreteSct, P: float, Mx: float, My: float,
+                assump: Assumptions=defaultAssumption):
+    data = DesignData.fromSection(section)
     _percent = PMMsolver.CalcAsPercent(data, P, Mx, My, assump)
     data = PMMsolver.setAsPercent(data, _percent) # type: ignore
     angle = float(PMMsolver.AngleFromForces(data,  P, Mx, My, assump))
