@@ -1,15 +1,18 @@
 from pyCivilDesign.sections.concreteSections import showSection, RectConcreteSct
-from pyCivilDesign.concreteDesign.designProps import setDesignDataFromSection
 import pyCivilDesign.sections.rebarSections as Rsct
 import pyCivilDesign.sections.section as Sct
-import pyCivilDesign.concreteDesign.LRFD as LRFDsolver
-import pyCivilDesign.concreteDesign.LRFDmethod.PMManalysis as PMMsolver
+import pyCivilDesign.concreteDesign.LRFDmethod.PMManalysis as PMManalysis
+import pyCivilDesign.concreteDesign.LRFDmethod.Manalysis as Manalysis
+import pyCivilDesign.concreteDesign.designProps as props
+
 
 d20 = Rsct.d20
 
 sct = RectConcreteSct(b=500, h=700)
 sct.rebarCoords = Rsct.RectRebarsSct(sct.section, 5, 4, d20, 50)
-LRFDsolver.show_PMM_analysis_result(sct, 3e6, 6e8, 5e8)
-# print(LRFDsolver.PMM_design(sct, 3e6, 6e8, 5e8))
+# showSection(sct)
 
-# print(PMMsolver.CalcAsPercent(data, 3e6, 6e8, 5e8))
+data = props.setDesignDataFromSection(sct)
+
+print(PMManalysis.calc_As_percent(data, 3e6, 4e8, 3e8))
+
