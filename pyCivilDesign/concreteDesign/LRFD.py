@@ -42,48 +42,48 @@ ratio = {round(self.ratio, 2)}'''
 
 def PMM_analyze(section: ConcreteSct, P: float, Mx: float, My: float):
     data = DesignData.fromSection(section)
-    _ratio = PMMsolver.CalcPMRatio(data, P, Mx, My)
+    _ratio = PMMsolver.calc_PM_ratio(data, P, Mx, My)
     _M = pow(Mx**2 + My**2, 0.5)
-    _angle = float(PMMsolver.AngleFromForces(data, P, Mx, My))
-    _alpha = PMMsolver.Alpha(Mx, My)
-    _c = float(PMMsolver.C(data, P, _angle)) # type: ignore
-    _es = PMMsolver.es(data, _c, _angle)
-    _fs = PMMsolver.fs(data, _c, _angle)
-    _Fs = PMMsolver.Fs(data, _c, _angle)
-    _Cc = PMMsolver.Cc(data, _c, _angle)
-    _percent = PMMsolver.AsPercent(data)
+    _angle = float(PMMsolver.calc_angle_from_forces(data, P, Mx, My))
+    _alpha = PMMsolver.calc_alpha(Mx, My)
+    _c = float(PMMsolver.calc_c(data, P, _angle)) # type: ignore
+    _es = PMMsolver.calc_es(data, _c, _angle)
+    _fs = PMMsolver.calc_fs(data, _c, _angle)
+    _Fs = PMMsolver.calc_Fs(data, _c, _angle)
+    _Cc = PMMsolver.calc_Cc(data, _c, _angle)
+    _percent = PMMsolver.As_percent(data)
     return PMMresults(_c, _angle, _alpha, _es, _fs, _Fs, _Cc, P, _M, Mx, My, _percent, "", _ratio) # type: ignore
         
 
 def PMM_design(section: ConcreteSct, P: float, Mx: float, My: float):
     data = DesignData.fromSection(section)
-    _percent = PMMsolver.CalcAsPercent(data, P, Mx, My)
-    data = PMMsolver.setAsPercent(data, _percent) # type: ignore
-    angle = float(PMMsolver.AngleFromForces(data,  P, Mx, My))
-    c = float(PMMsolver.C(data, P, angle))
-    _M, _Mx, _My = PMMsolver.M(data, c, angle)
-    alpha = PMMsolver.Alpha(data, _Mx, _My) # type: ignore
-    _es = PMMsolver.es(data, c, angle)
-    _fs = PMMsolver.fs(data, c, angle)
-    _Fs = PMMsolver.Fs(data, c, angle)
-    _Cc = PMMsolver.Cc(data, c, angle)
+    _percent = PMMsolver.calc_As_percent(data, P, Mx, My)
+    data = PMMsolver.set_As_percent(data, _percent) # type: ignore
+    angle = float(PMMsolver.calc_angle_from_forces(data,  P, Mx, My))
+    c = float(PMMsolver.calc_c(data, P, angle))
+    _M, _Mx, _My = PMMsolver.calc_M(data, c, angle)
+    alpha = PMMsolver.calc_alpha(data, _Mx, _My) # type: ignore
+    _es = PMMsolver.calc_es(data, c, angle)
+    _fs = PMMsolver.calc_fs(data, c, angle)
+    _Fs = PMMsolver.calc_Fs(data, c, angle)
+    _Cc = PMMsolver.calc_Cc(data, c, angle)
     return PMMresults(c, angle, alpha, _es, _fs, _Fs, _Cc, P, _M, Mx, My, _percent, "", 0) # type: ignore
 
 
 def show_PMM_analysis_result(section: ConcreteSct, P: float, Mx: float, My: float):
     data = DesignData.fromSection(section)
     M = pow(Mx**2 + My**2, 0.5)
-    ratio = PMMsolver.CalcPMRatio(data, P, Mx, My)
+    ratio = PMMsolver.calc_PM_ratio(data, P, Mx, My)
 
-    angle = PMMsolver.AngleFromForces(data, P, Mx, My) # type: ignore
-    alpha = PMMsolver.Alpha(Mx, My)
+    angle = PMMsolver.calc_angle_from_forces(data, P, Mx, My) # type: ignore
+    alpha = PMMsolver.calc_alpha(Mx, My)
     PointNums = 20
-    Paxis = np.linspace(PMMsolver.PtMax(data), PMMsolver.P0(data), PointNums, endpoint=True)
-    Maxis = np.array([PMMsolver.CalcMn(data, p, angle, assump)[0] for p in Paxis]) # type: ignore
+    Paxis = np.linspace(PMMsolver.calc_Pt_max(data), PMMsolver.calc_P0(data), PointNums, endpoint=True)
+    Maxis = np.array([PMMsolver.calc_Mn(data, p, angle, assump)[0] for p in Paxis]) # type: ignore
 
     AlphaNums = 21
     Alphas = np.linspace(0, 360, AlphaNums)
-    _M =  np.array([PMMsolver.CalcMn(data, P, alpha, assump) for alpha in Alphas]) # type: ignore
+    _M =  np.array([PMMsolver.calc_Mn(data, P, alpha, assump) for alpha in Alphas]) # type: ignore
     MxAxis =  np.array([m[1] for m in _M])
     MyAxis =  np.array([m[2] for m in _M])
 
