@@ -7,7 +7,7 @@ from shapely import Polygon, LineString, Point
 from shapely.affinity import rotate
 from shapely.ops import polygonize
 
-from scipy.optimize import least_squares, minimize, root
+from scipy.optimize import least_squares, minimize
 
 from pyCivilDesign.concreteDesign.designProps import DesignData
 import pyCivilDesign.concreteDesign.LRFDmethod.assumptions as assump
@@ -239,12 +239,32 @@ def calc_ec(section: Polygon, c: float, angle: float, point: Point) -> np.float3
 
 
 def calc_fs(data: DesignData, c: float, angle: float) -> NDArray[np.float32]:
+    """calculate stress for each rebar for rotated section
+
+    Args:
+        data (DesignData): design data
+        c (float): distance from extreme compression fiber to neutral axis, mm
+        angle (float): angle of rotate, degree
+
+    Returns:
+        NDArray[np.float32]: stress of rebars
+    """
     es = calc_es(data.section, data.Coords, c, angle)
     fs = np.minimum(np.abs(es) * data.Es, data.fy)
     return np.copysign(fs, es)
 
 
 def calc_Fs(data: DesignData, c: float, angle: float) -> NDArray[np.float32]:
+    """calculate force for each rebar for rotated section
+
+    Args:
+        data (DesignData): design data
+        c (float): distance from extreme compression fiber to neutral axis, mm
+        angle (float): angle of rotate, degree
+
+    Returns:
+        NDArray[np.float32]: force of rebars
+    """
     fs = calc_fs(data, c, angle)
     return np.where(data.As*fs <= 0, data.As*fs, data.As*(fs-0.85*data.fc))
 
@@ -326,9 +346,8 @@ def _optim_M(x, *args):
     rot_section = rotate_section(_data.section, _angle) if _angle!=0 else _data.section
     _, miny, _, maxy = rot_section.bounds
     #[ ] TODO: must be faster
-    # _c = least_squares(OptimF, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), 
-                    #    args=(_P, _angle, _data, _assump)).x[0]
-    _c = root(_optim_F, ((maxy-miny)/2), args=(_P, _angle, _data)).x[0]
+    _c = least_squares(_optim_F, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), 
+                       args=(_P, _angle, _data)).x[0]
     return abs(calc_M(_data, _c, _angle)[0]/_P - _e0)
 
 
@@ -336,10 +355,9 @@ def calc_PM_ratio(data: DesignData, P: float, Mx: float, My: float) -> np.float3
     angle = calc_angle_from_forces(data, P, Mx, My)
     M = pow(Mx**2 + My**2, 0.5)
     #[ ] TODO: must be faster
-    # _P = least_squares(OptimM, ((P0(data)+PtMax(data))/2), 
-    #                    bounds=((PtMax(data)), (P0(data))), 
-    #                    args=(angle, M/P, data, assump)).x[0] if P != 0 else 1
-    _P = root(_optim_M,(calc_P0(data)+calc_Pt_max(data))/2, args=(angle, M/P, data)).x[0] if P!=0 else 1
+    _P = least_squares(_optim_M, ((calc_P0(data)+calc_Pt_max(data))/2), 
+                       bounds=((calc_Pt_max(data)), (calc_P0(data))), 
+                       args=(angle, M/P, data)).x[0] if P != 0 else 1
     _M = calc_Mn(data, _P, angle)[0] # type: ignore
     return np.float32(P/_P if (P/_P) != 0 else M/_M)
 
@@ -374,4 +392,4 @@ def calc_As_percent(data:DesignData, P: float, Mx: float, My: float) -> np.float
         maxPercent = (maxPercent + minPercent)/2 if e<0 else maxPercent
         minPercent = minPercent if e<0 else (maxPercent + minPercent)/2
     return percent
-    # return root(OptimPercent, (4,), args=(P, Mx, My, data, assump)).x[0]
+    # return least_squares(_optim_percent, (4,), args=(P, Mx, My, data)).x[0]
