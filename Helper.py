@@ -14,5 +14,5 @@ sct.rebarCoords = Rsct.RectRebarsSct(sct.section, 5, 4, d20, 50)
 
 data = props.setDesignDataFromSection(sct)
 
-print(PMManalysis.calc_As_percent(data, 3e6, 4e8, 3e8))
-
+print(PMManalysis.calc_As_percent(data, 3e6, 5e8, 3e8))
+# print(Manalysis.calc_c(data))
