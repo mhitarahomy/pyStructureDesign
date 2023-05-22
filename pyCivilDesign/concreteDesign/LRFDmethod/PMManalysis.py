@@ -43,7 +43,7 @@ def calc_Pt_max(data: DesignData) -> np.float32:
 def calc_alpha(Mx: float, My: float) -> np.float32:
     alpha = np.degrees(np.arctan(abs(My/Mx))) if Mx != 0 else 90
     alpha = alpha if (Mx>=0 and My>=0) else 180-alpha if (Mx<0 and My>0) else \
-        180+ alpha if (Mx<0 and My<0) else 360-alpha if (Mx>0 and My<0) else alpha
+        180+alpha if (Mx<0 and My<0) else 360-alpha if (Mx>0 and My<0) else alpha
     return np.float32(alpha)
 
 
@@ -77,72 +77,165 @@ def calc_angle_from_alpha(data:DesignData, P:float, alpha:float) -> np.float32:
 
 
 def rotate_section(section: Polygon, angle: float) -> Polygon:
+    """rotate cross section
+
+    Args:
+        section (Polygon): cross section shape
+        angle (float): angle of rotate, degree
+
+    Returns:
+        Polygon: rotated cross section
+    """
     return  rotate(section, angle, origin=Point([0, 0])) if angle!=0 else section
 
 
 def rotate_rebar_coords(coords: NDArray[Point], angle: float) -> NDArray[Point]:
+    """rotate rebar point coordinates
+
+    Args:
+        coords (NDArray[Point]): list of point coordinates
+        angle (float): angle of rotate, degree
+
+    Returns:
+        NDArray[Point]: list of rotated point coordinates
+    """
     return np.array([rotate(coord, angle, origin=Point([0, 0])) \
                            for coord in coords]) if angle !=0 else coords
 
 
 def calc_neutral_axis(section: Polygon, c: float, angle: float) -> LineString:
+    """calculate neutral axis for section that rotated
+
+    Args:
+        section (Polygon): cross section shape
+        c (float): distance from extreme compression fiber to neutral axis, mm
+        angle (float): angle of rotate section, degree
+
+    Returns:
+        LineString: netural line
+    """
     rot_section = rotate_section(section, angle) if angle!=0 else section 
     minx, _, maxx, maxy = rot_section.bounds
     return LineString([(maxx+10, maxy-c), (minx-10, maxy-c)])
 
 
 def calc_neutral_region(section: Polygon, c: float, angle: float) -> Polygon:
+    """calculate neutral region for section that rotated
+
+    Args:
+        section (Polygon): cross section shape
+        c (float): distance from extreme compression fiber to neutral axis, mm
+        angle (float): angle of rotate, degree
+
+    Returns:
+        Polygon: neutral region shape
+    """
     rot_section = rotate_section(section, angle) if angle!=0 else section
     minx, _, maxx, maxy = rot_section.bounds
     topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-c),
                       (minx-10, maxy-c), (minx-10, maxy)])
-    NL = calc_neutral_axis(section, c, angle)
-    unioned = rot_section.boundary.union(NL)
-    NR = [poly for poly in polygonize(unioned) if \
+    neutral_line = calc_neutral_axis(section, c, angle)
+    unioned = rot_section.boundary.union(neutral_line)
+    neutral_region = [poly for poly in polygonize(unioned) if \
         poly.representative_point().within(topArea)]
-    return NR[0]
+    return neutral_region[0]
 
 
 def calc_max_pressure_point(section: Polygon, c: float, angle: float) -> np.float32:
-    NL = calc_neutral_axis(section, c, angle)
-    NR = calc_neutral_region(section, c, angle)
-    return np.max([NL.distance(Point(p)) for p in list(NR.exterior.coords)])
+    """calculate maximum distance of neutral region for rotated section
+
+    Args:
+        section (Polygon): cross section shape
+        c (float): distance from extreme compression fiber to neutral axis, mm
+        angle (float): angle of rotate, degree
+
+    Returns:
+        np.float32: maximum distance of pressure point
+    """
+    neutral_line = calc_neutral_axis(section, c, angle)
+    neutral_region = calc_neutral_region(section, c, angle)
+    return np.max([neutral_line.distance(Point(p)) for p in list(neutral_region.exterior.coords)])
 
 
 def calc_pressure_axis(section: Polygon, fc: np.float32, c: float, angle: float) -> LineString:
-    MaxPrPoint = calc_max_pressure_point(section, c, angle)
-    NL = calc_neutral_axis(section, c, angle)
-    return NL.parallel_offset(distance=MaxPrPoint*(1-assump.beta1(fc)), side="right")
+    """calculate pressure line based on ACI code
+
+    Args:
+        section (Polygon): cross section shape
+        fc (np.float32): specified compressive strength of concrete, MPa
+        c (float): distance from extreme compression fiber to neutral axis, mm
+        angle (float): angle of rotate, degree
+
+    Returns:
+        LineString: pressure line
+    """
+    max_pressure_point = calc_max_pressure_point(section, c, angle)
+    neutral_line = calc_neutral_axis(section, c, angle)
+    return neutral_line.parallel_offset(distance=max_pressure_point*
+                                        (1-assump.beta1(fc)), side="right")
 
 
 def calc_pressure_region(section: Polygon, fc: np.float32, c: float, angle: float) -> Polygon:
+    """calculate pressure region based on ACI code
+
+    Args:
+        section (Polygon): cross section shape
+        fc (np.float32): specified compressive strength of concrete, MPa
+        c (float): distance from extreme compression fiber to neutral axis, mm
+        angle (float): angle of rotate, degree
+
+    Returns:
+        Polygon: pressure region
+    """
     rot_section = rotate_section(section, angle) if angle!=0 else section
     minx, _, maxx, maxy = rot_section.bounds
-    topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-(0.85*c)),
+    top_area = Polygon([(maxx+10, maxy), (maxx+10, maxy-(0.85*c)),
                       (minx-10, maxy-(0.85*c)), (minx-10, maxy)])
-    PL = calc_pressure_axis(section, fc, c, angle)
-    unioned = rot_section.boundary.union(PL)
-    PR = [poly for poly in polygonize(unioned) if \
-          poly.representative_point().within(topArea)]
-    return PR[0]
+    pressure_line = calc_pressure_axis(section, fc, c, angle)
+    unioned = rot_section.boundary.union(pressure_line)
+    pressure_region = [poly for poly in polygonize(unioned) if \
+          poly.representative_point().within(top_area)]
+    return pressure_region[0]
 
 
 def calc_es(section: Polygon, coords:NDArray[Point], c: float, angle: float) -> NDArray[np.float32]:
+    """calculate strain of rebars for rotated section
+
+    Args:
+        section (Polygon): cross section shape
+        coords (NDArray[Point]): coordinates of rebars, mm
+        c (float): distance from extreme compression fiber to neutral axis, mm
+        angle (float): angle of rotate, degree
+
+    Returns:
+        NDArray[np.float32]: _description_
+    """
     rot_coords = rotate_rebar_coords(coords, angle) if angle!=0 else coords
-    NL = calc_neutral_axis(section, c, angle)
-    MaxPrPoint = calc_max_pressure_point(section, c, angle)
-    NR = calc_neutral_region(section, c, angle)
-    esSign = np.array([1 if NR.contains(point) else -1 for point in rot_coords])
-    return np.array([((esSign[i]*NL.distance(rot_coords[i]))/MaxPrPoint)*assump.ecu \
+    neutral_line = calc_neutral_axis(section, c, angle)
+    max_pressure_point = calc_max_pressure_point(section, c, angle)
+    neutral_region = calc_neutral_region(section, c, angle)
+    es_sign = np.array([1 if neutral_region.contains(point) else -1 for point in rot_coords])
+    return np.array([((es_sign[i]*neutral_line.distance(rot_coords[i]))/max_pressure_point)*assump.ecu \
         for i in range(len(rot_coords))])
 
 
 def calc_ec(section: Polygon, c: float, angle: float, point: Point) -> np.float32:
-    NL = calc_neutral_axis(section, c, angle)
-    MaxPrPoint = calc_max_pressure_point(section, c, angle)
-    NR = calc_neutral_region(section, c, angle)
-    ecSign = 1 if NR.contains(point) else -1
-    return ((ecSign * NL.distance(point))/MaxPrPoint)*assump.ecu
+    """calculate strain of concrete for each point on section
+
+    Args:
+        section (Polygon): cross section shape
+        c (float): distance from extreme compression fiber to neutral axis, mm
+        angle (float): angle of rotate, degree
+        point (Point): one point on section
+
+    Returns:
+        np.float32: strain of concrete
+    """
+    neutral_line = calc_neutral_axis(section, c, angle)
+    max_pressure_point = calc_max_pressure_point(section, c, angle)
+    neutral_region = calc_neutral_region(section, c, angle)
+    ec_sign = 1 if neutral_region.contains(point) else -1
+    return ((ec_sign * neutral_line.distance(point))/max_pressure_point)*assump.ecu
 
 
 def calc_fs(data: DesignData, c: float, angle: float) -> NDArray[np.float32]:
