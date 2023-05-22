@@ -3,7 +3,7 @@ from typing import Callable
 from pyCivilDesign.sections.concreteSections import ConcreteSct
 import numpy as np
 from numpy.typing import NDArray
-from shapely import Polygon
+from shapely import Polygon, Point
 
 
 @dataclass(kw_only=True)
@@ -14,7 +14,7 @@ class DesignData():
     fy: np.float32
     fyt: np.float32
     fc: np.float32
-    Coords: NDArray[np.float32]
+    Coords: NDArray[Point]
     As: NDArray[np.float32]
     Es: np.float32
 

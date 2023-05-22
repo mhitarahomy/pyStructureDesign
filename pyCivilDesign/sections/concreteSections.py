@@ -33,7 +33,7 @@ class ConcreteSct():
         return list(self.section.exterior.coords)
     
     @property
-    def Coords(self) -> ListOfPoints:
+    def Coords(self) -> List[Point]:
         return [rcoord.point for rcoord in self.rebarCoords]
     
     @property
