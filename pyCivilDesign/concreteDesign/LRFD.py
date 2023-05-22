@@ -4,8 +4,8 @@ from matplotlib import pyplot as plt
 
 import numpy as np
 from numpy.typing import NDArray
-import pyCivilDesign.concreteDesign.LRFDmethod.PMMSolver as PMMsolver
-from pyCivilDesign.concreteDesign.LRFDmethod.PMMSolver import Assumptions, DesignData, defaultAssumption
+import pyCivilDesign.concreteDesign.LRFDmethod.PMManalysis as PMMsolver
+from pyCivilDesign.concreteDesign.LRFDmethod.PMManalysis import DesignData
 from pyCivilDesign.sections.concreteSections import ConcreteSct
 
 
@@ -40,46 +40,43 @@ msg = {self.msg}
 ratio = {round(self.ratio, 2)}'''
 
 
-def PMM_analyze(section: ConcreteSct, P: float, Mx: float, My: float, 
-                   assump: Assumptions=defaultAssumption):
+def PMM_analyze(section: ConcreteSct, P: float, Mx: float, My: float):
     data = DesignData.fromSection(section)
-    _ratio = PMMsolver.CalcPMRatio(data, P, Mx, My, assump)
+    _ratio = PMMsolver.CalcPMRatio(data, P, Mx, My)
     _M = pow(Mx**2 + My**2, 0.5)
-    _angle = float(PMMsolver.AngleFromForces(data, P, Mx, My, assump))
-    _alpha = PMMsolver.Alpha(data, Mx, My, assump)
-    _c = float(PMMsolver.C(data, P, _angle, assump)) # type: ignore
-    _es = PMMsolver.es(data, _c, _angle, assump)
-    _fs = PMMsolver.fs(data, _c, _angle, assump)
-    _Fs = PMMsolver.Fs(data, _c, _angle, assump)
-    _Cc = PMMsolver.Cc(data, _c, _angle, assump)
+    _angle = float(PMMsolver.AngleFromForces(data, P, Mx, My))
+    _alpha = PMMsolver.Alpha(Mx, My)
+    _c = float(PMMsolver.C(data, P, _angle)) # type: ignore
+    _es = PMMsolver.es(data, _c, _angle)
+    _fs = PMMsolver.fs(data, _c, _angle)
+    _Fs = PMMsolver.Fs(data, _c, _angle)
+    _Cc = PMMsolver.Cc(data, _c, _angle)
     _percent = PMMsolver.AsPercent(data)
     return PMMresults(_c, _angle, _alpha, _es, _fs, _Fs, _Cc, P, _M, Mx, My, _percent, "", _ratio) # type: ignore
         
 
-def PMM_design(section: ConcreteSct, P: float, Mx: float, My: float,
-                assump: Assumptions=defaultAssumption):
+def PMM_design(section: ConcreteSct, P: float, Mx: float, My: float):
     data = DesignData.fromSection(section)
-    _percent = PMMsolver.CalcAsPercent(data, P, Mx, My, assump)
+    _percent = PMMsolver.CalcAsPercent(data, P, Mx, My)
     data = PMMsolver.setAsPercent(data, _percent) # type: ignore
-    angle = float(PMMsolver.AngleFromForces(data,  P, Mx, My, assump))
-    c = float(PMMsolver.C(data, P, angle, assump))
-    _M, _Mx, _My = PMMsolver.M(data, c, angle, assump)
-    alpha = PMMsolver.Alpha(data, _Mx, _My, assump) # type: ignore
-    _es = PMMsolver.es(data, c, angle, assump)
-    _fs = PMMsolver.fs(data, c, angle, assump)
-    _Fs = PMMsolver.Fs(data, c, angle, assump)
-    _Cc = PMMsolver.Cc(data, c, angle, assump)
+    angle = float(PMMsolver.AngleFromForces(data,  P, Mx, My))
+    c = float(PMMsolver.C(data, P, angle))
+    _M, _Mx, _My = PMMsolver.M(data, c, angle)
+    alpha = PMMsolver.Alpha(data, _Mx, _My) # type: ignore
+    _es = PMMsolver.es(data, c, angle)
+    _fs = PMMsolver.fs(data, c, angle)
+    _Fs = PMMsolver.Fs(data, c, angle)
+    _Cc = PMMsolver.Cc(data, c, angle)
     return PMMresults(c, angle, alpha, _es, _fs, _Fs, _Cc, P, _M, Mx, My, _percent, "", 0) # type: ignore
 
 
-def show_PMM_analysis_result(section: ConcreteSct, P: float, Mx: float, My: float,
-                              assump: Assumptions=defaultAssumption):
+def show_PMM_analysis_result(section: ConcreteSct, P: float, Mx: float, My: float):
     data = DesignData.fromSection(section)
     M = pow(Mx**2 + My**2, 0.5)
-    ratio = PMMsolver.CalcPMRatio(data, P, Mx, My, assump)
+    ratio = PMMsolver.CalcPMRatio(data, P, Mx, My)
 
-    angle = PMMsolver.AngleFromForces(data, P, Mx, My, assump) # type: ignore
-    alpha = PMMsolver.Alpha(data, Mx, My, assump)
+    angle = PMMsolver.AngleFromForces(data, P, Mx, My) # type: ignore
+    alpha = PMMsolver.Alpha(Mx, My)
     PointNums = 20
     Paxis = np.linspace(PMMsolver.PtMax(data), PMMsolver.P0(data), PointNums, endpoint=True)
     Maxis = np.array([PMMsolver.CalcMn(data, p, angle, assump)[0] for p in Paxis]) # type: ignore
