@@ -67,12 +67,13 @@ def calc_M(data: DesignData, c: float, IsPhi: bool = True) -> np.float32:
 
 calc_P = partial(PMM.calc_P, angle=0)
 
+
 def _optim_F(x, *args):
     c = x[0]
-    data = args[1]
+    data = args[0]
     return calc_P(data, c)
 
 
 def calc_c(data: DesignData) -> np.float32:
     _, miny, _, maxy = data.section.bounds
-    return root(_optim_F, ((maxy-miny)/2), args=(data)).x[0]
+    return root(_optim_F, ((maxy-miny)/2,), args=(data,)).x[0]
