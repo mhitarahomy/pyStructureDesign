@@ -3,7 +3,7 @@ from pyCivilDesign.concreteDesign.designProps import setDesignDataFromSection
 import pyCivilDesign.sections.rebarSections as Rsct
 import pyCivilDesign.sections.section as Sct
 import pyCivilDesign.concreteDesign.LRFD as LRFDsolver
-import pyCivilDesign.concreteDesign.LRFDmethod.PMMSolver as PMMsolver
+import pyCivilDesign.concreteDesign.LRFDmethod.PMManalysis as PMMsolver
 
 d20 = Rsct.d20
 
