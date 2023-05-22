@@ -7,11 +7,11 @@ phit = np.float32(0.6)
 ecu = np.float32(0.003)
 
 
-def beta1(fc: float):
-    return np.float32(0.85 if fc<=28 else max(0.85-(0.05*(fc-28)/7), 0.65))
+def beta1(fc: np.float32):
+    return np.float32(0.85 if fc<=28 else max(0.85-(0.05*(fc-28)/7), 0.65)) # type: ignore
     
 
-def phif(fy: float, Es: float, esMin: np.float32) -> np.float32:
+def phif(fy: np.float32, Es: np.float32, esMin: np.float32) -> np.float32:
     ety = fy / Es
     et = abs(esMin)
     return np.float32(0.65 if et <= ety else 0.65+0.25*((et-ety)/0.003)\
