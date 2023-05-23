@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 from numpy.typing import NDArray
 import pyCivilDesign.concreteDesign.LRFDmethod.PMManalysis as PMMsolver
-from pyCivilDesign.concreteDesign.LRFDmethod.PMManalysis import DesignData
+from pyCivilDesign.concreteDesign.designProps import DesignData, setDesignDataFromSection
 from pyCivilDesign.sections.concreteSections import ConcreteSct
 
 
@@ -47,7 +47,7 @@ def PMM_analyze(section: ConcreteSct, P: float, Mx: float, My: float):
     _angle = float(PMMsolver.calc_angle_from_forces(data, P, Mx, My))
     _alpha = PMMsolver.calc_alpha(Mx, My)
     _c = float(PMMsolver.calc_c(data, P, _angle)) # type: ignore
-    _es = PMMsolver.calc_es(data, _c, _angle)
+    _es = PMMsolver.calc_es(data.section, data.Coords, _c, _angle)
     _fs = PMMsolver.calc_fs(data, _c, _angle)
     _Fs = PMMsolver.calc_Fs(data, _c, _angle)
     _Cc = PMMsolver.calc_Cc(data, _c, _angle)
@@ -63,7 +63,7 @@ def PMM_design(section: ConcreteSct, P: float, Mx: float, My: float):
     c = float(PMMsolver.calc_c(data, P, angle))
     _M, _Mx, _My = PMMsolver.calc_M(data, c, angle)
     alpha = PMMsolver.calc_alpha(data, _Mx, _My) # type: ignore
-    _es = PMMsolver.calc_es(data, c, angle)
+    _es = PMMsolver.calc_es(data.section, data.Coords, c, angle)
     _fs = PMMsolver.calc_fs(data, c, angle)
     _Fs = PMMsolver.calc_Fs(data, c, angle)
     _Cc = PMMsolver.calc_Cc(data, c, angle)
@@ -71,7 +71,8 @@ def PMM_design(section: ConcreteSct, P: float, Mx: float, My: float):
 
 
 def show_PMM_analysis_result(section: ConcreteSct, P: float, Mx: float, My: float):
-    data = DesignData.fromSection(section)
+    data = setDesignDataFromSection(section)
+    print(data.section)
     M = pow(Mx**2 + My**2, 0.5)
     ratio = PMMsolver.calc_PM_ratio(data, P, Mx, My)
 
@@ -79,11 +80,11 @@ def show_PMM_analysis_result(section: ConcreteSct, P: float, Mx: float, My: floa
     alpha = PMMsolver.calc_alpha(Mx, My)
     PointNums = 20
     Paxis = np.linspace(PMMsolver.calc_Pt_max(data), PMMsolver.calc_P0(data), PointNums, endpoint=True)
-    Maxis = np.array([PMMsolver.calc_Mn(data, p, angle, assump)[0] for p in Paxis]) # type: ignore
+    Maxis = np.array([PMMsolver.calc_Mn(data, p, angle)[0] for p in Paxis]) # type: ignore
 
     AlphaNums = 21
     Alphas = np.linspace(0, 360, AlphaNums)
-    _M =  np.array([PMMsolver.calc_Mn(data, P, alpha, assump) for alpha in Alphas]) # type: ignore
+    _M =  np.array([PMMsolver.calc_Mn(data, P, alpha) for alpha in Alphas]) # type: ignore
     MxAxis =  np.array([m[1] for m in _M])
     MyAxis =  np.array([m[2] for m in _M])
 

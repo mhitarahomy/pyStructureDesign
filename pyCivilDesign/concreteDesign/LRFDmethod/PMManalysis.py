@@ -7,7 +7,7 @@ from shapely import Polygon, LineString, Point
 from shapely.affinity import rotate
 from shapely.ops import polygonize
 
-from scipy.optimize import least_squares, minimize
+import scipy.optimize as opt
 
 from pyCivilDesign.concreteDesign.designProps import DesignData
 import pyCivilDesign.concreteDesign.LRFDmethod.assumptions as assump
@@ -52,7 +52,8 @@ def _optim_angle(x, *args):
     _P = args[0]
     _alpha = args[1]
     _data = args[2]
-    return abs(calc_Mn(_data, _P, _angle)[3]-_alpha)
+    _, _Mx, _My = calc_Mn(_data, _P, _angle)
+    return abs(calc_alpha(_Mx, _My)-_alpha) # type: ignore
 
 
 def calc_angle_from_forces(data: DesignData, P: float, Mx: float, My: float) -> np.float32:
@@ -61,8 +62,9 @@ def calc_angle_from_forces(data: DesignData, P: float, Mx: float, My: float) -> 
          180 if 180<alpha<=270 else 270
     uAngle = 90 if 0<=alpha<=90 else 180 if 90<alpha<=180 else\
          270 if 180<alpha<=270 else 360
-    output = least_squares(_optim_angle, (alpha), bounds=((lAngle), (uAngle)),
-                           args=(P, alpha, data))
+    output = opt.root(fun=_optim_angle, method="lm", x0=(alpha, ), args=(P, alpha, data))
+    # output = opt.least_squares(_optim_angle, (alpha), bounds=((lAngle), (uAngle)),
+    #                        args=(P, alpha, data))
     return output.x[0]
 
 
@@ -71,7 +73,7 @@ def calc_angle_from_alpha(data:DesignData, P:float, alpha:float) -> np.float32:
          180 if 180<alpha<=270 else 270
     uAngle = 90 if 0<=alpha<=90 else 180 if 90<alpha<= 180 else\
          270 if 180<alpha<=270 else 360
-    output = least_squares(_optim_angle, (alpha), bounds=((lAngle), (uAngle)),
+    output = opt.least_squares(_optim_angle, (alpha), bounds=((lAngle), (uAngle)),
                            args=(P, alpha, data))
     return output.x[0]
 
@@ -114,7 +116,8 @@ def calc_neutral_axis(section: Polygon, c: float, angle: float) -> LineString:
     Returns:
         LineString: netural line
     """
-    rot_section = rotate_section(section, angle) if angle!=0 else section 
+    c = c if c>=0.1 else 0.1
+    rot_section = rotate_section(section, angle)
     minx, _, maxx, maxy = rot_section.bounds
     return LineString([(maxx+10, maxy-c), (minx-10, maxy-c)])
 
@@ -130,7 +133,8 @@ def calc_neutral_region(section: Polygon, c: float, angle: float) -> Polygon:
     Returns:
         Polygon: neutral region shape
     """
-    rot_section = rotate_section(section, angle) if angle!=0 else section
+    c = c if c>=0.1 else 0.1
+    rot_section = rotate_section(section, angle)
     minx, _, maxx, maxy = rot_section.bounds
     topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-c),
                       (minx-10, maxy-c), (minx-10, maxy)])
@@ -152,6 +156,7 @@ def calc_max_pressure_point(section: Polygon, c: float, angle: float) -> np.floa
     Returns:
         np.float32: maximum distance of pressure point
     """
+    c = c if c>=0.1 else 0.1
     neutral_line = calc_neutral_axis(section, c, angle)
     neutral_region = calc_neutral_region(section, c, angle)
     return np.max([neutral_line.distance(Point(p)) for p in list(neutral_region.exterior.coords)])
@@ -169,6 +174,7 @@ def calc_pressure_axis(section: Polygon, fc: np.float32, c: float, angle: float)
     Returns:
         LineString: pressure line
     """
+    c = c if c>=0.1 else 0.1
     max_pressure_point = calc_max_pressure_point(section, c, angle)
     neutral_line = calc_neutral_axis(section, c, angle)
     return neutral_line.parallel_offset(distance=max_pressure_point*
@@ -187,6 +193,7 @@ def calc_pressure_region(section: Polygon, fc: np.float32, c: float, angle: floa
     Returns:
         Polygon: pressure region
     """
+    c = c if c>=0.1 else 0.1
     rot_section = rotate_section(section, angle) if angle!=0 else section
     minx, _, maxx, maxy = rot_section.bounds
     top_area = Polygon([(maxx+10, maxy), (maxx+10, maxy-(0.85*c)),
@@ -315,9 +322,12 @@ def _optim_F(x, *args):
 
 
 def calc_c(data: DesignData, P: float, angle: float) -> np.float32:
-    rot_section = rotate_section(data.section, angle) if angle!=0 else data.section
+    rot_section = rotate_section(data.section, angle)
     _, miny, _, maxy = rot_section.bounds
-    return least_squares(_optim_F, ((maxy-miny)*2.5), 
+    # print((maxy-miny))
+    # result = opt.root(fun=_optim_F, method="lm", x0=((maxy-miny),), args=(P, angle, data))
+    # return result.x[0]
+    return opt.least_squares(_optim_F, ((maxy-miny),), 
                          bounds=((0.00001), (5*(maxy-miny))), 
                          args=(P, angle, data)).x[0]
 
@@ -326,15 +336,14 @@ def _optim_max_M(x, *args):
     _P = x[0]
     _angle = args[0]
     _data = args[1]
-    rot_section = rotate_section(_data.section, _angle) if _angle!=0 else _data.section
-    _, miny, _, maxy = rot_section.bounds
-    _c = least_squares(_optim_F, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), 
-                       args=(_P, _angle, _data)).x[0]
-    return -calc_M(_data, _c, _angle)[0]
+    _c = calc_c(_data, _P, _angle)
+    # _c = least_squares(_optim_F, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), 
+    #                    args=(_P, _angle, _data)).x[0]
+    return -calc_M(_data, _c, _angle)[0] # type: ignore
 
 
 def calc_PM_max(data: DesignData, angle: float) -> Tuple[np.float32, np.float32]:
-    output = minimize(_optim_max_M, ((calc_P0(data)/2)), method="L-BFGS-B", args=(angle, data))
+    output = opt.minimize(_optim_max_M, ((calc_P0(data)/2)), method="L-BFGS-B", args=(angle, data))
     return output.x[0], -output.fun
 
 
@@ -343,31 +352,28 @@ def _optim_M(x, *args):
     _angle = args[0]
     _e0 = args[1]
     _data = args[2]
-    rot_section = rotate_section(_data.section, _angle) if _angle!=0 else _data.section
-    _, miny, _, maxy = rot_section.bounds
-    #[ ] TODO: must be faster
-    _c = least_squares(_optim_F, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), 
-                       args=(_P, _angle, _data)).x[0]
-    return abs(calc_M(_data, _c, _angle)[0]/_P - _e0)
+    _c = calc_c(_data, _P, _angle)
+    # _c = opt.least_squares(_optim_F, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), 
+    #                    args=(_P, _angle, _data)).x[0]
+    return abs(calc_M(_data, _c, _angle)[0]/_P - _e0) # type: ignore
 
 
 def calc_PM_ratio(data: DesignData, P: float, Mx: float, My: float) -> np.float32:
     angle = calc_angle_from_forces(data, P, Mx, My)
     M = pow(Mx**2 + My**2, 0.5)
-    #[ ] TODO: must be faster
-    _P = least_squares(_optim_M, ((calc_P0(data)+calc_Pt_max(data))/2), 
+    # result = opt.root(fun=_optim_M, method="lm", x0=((calc_P0(data)+calc_Pt_max(data))/2,), args=(angle, M/P, data))
+    # _P = result.x[0]
+    _P = opt.least_squares(_optim_M, ((calc_P0(data)+calc_Pt_max(data))/2), 
                        bounds=((calc_Pt_max(data)), (calc_P0(data))), 
                        args=(angle, M/P, data)).x[0] if P != 0 else 1
     _M = calc_Mn(data, _P, angle)[0] # type: ignore
     return np.float32(P/_P if (P/_P) != 0 else M/_M)
 
 
-def calc_Mn(data: DesignData, P: float, angle: float) -> Tuple[np.float32, np.float32,
-                                                          np.float32, np.float32]:
+def calc_Mn(data: DesignData, P: float, angle: float) -> Tuple[np.float32, np.float32, np.float32]:
     c = calc_c(data, P, angle)
-    _M, Mx, My = calc_M(data, float(c), angle)
-    alpha = calc_alpha(Mx, My) # type: ignore
-    return _M, Mx, My, alpha
+    M, Mx, My = calc_M(data, float(c), angle)
+    return M, Mx, My
 
 
 def _optim_percent(x, *args):

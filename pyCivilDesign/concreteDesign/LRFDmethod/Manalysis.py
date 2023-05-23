@@ -1,8 +1,9 @@
 from functools import partial
+import time
 
 import numpy as np
 
-from scipy.optimize import least_squares
+from scipy import optimize
 
 from pyCivilDesign.concreteDesign.designProps import DesignData
 import pyCivilDesign.concreteDesign.LRFDmethod.PMManalysis as PMM
@@ -76,11 +77,9 @@ def _optim_F(x, *args):
 
 def calc_c(data: DesignData) -> np.float32:
     _, miny, _, maxy = data.section.bounds
-    lbound = 0.001
-    ubound = maxy-miny
-    c0 = (maxy-miny)/2
-    result = least_squares(fun=_optim_F, x0=(c0,), bounds=((lbound,), (ubound,)) ,args=(data,))
+    # result = least_squares(fun=_optim_F, x0=(c0,), bounds=((lbound,), (ubound,)) ,args=(data,))
+    result = optimize.root(fun=_optim_F, method="lm", x0=((maxy-miny)/2,) ,args=(data,))
     if result.success:
         return result.x[0]
     else:
-        raise ValueError("minimise error")
+        raise ValueError("minimize error")
