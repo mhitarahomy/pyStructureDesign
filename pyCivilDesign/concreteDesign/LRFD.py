@@ -77,15 +77,15 @@ def show_PMM_analysis_result(section: ConcreteSct, P: float, Mx: float, My: floa
 
     angle = PMMsolver.calc_angle_from_forces(data, P, Mx, My) # type: ignore
     alpha = PMMsolver.calc_alpha(Mx, My)
-    PointNums = 20
+    PointNums = 40
     Paxis = np.linspace(PMMsolver.calc_Pt_max(data), PMMsolver.calc_P0(data), PointNums, endpoint=True)
     Maxis = np.array([PMMsolver.calc_Mn(data, p, angle)[0] for p in Paxis]) # type: ignore
 
-    AlphaNums = 21
-    Alphas = np.linspace(0, 360, AlphaNums)
-    _M =  np.array([PMMsolver.calc_Mn(data, P, alpha) for alpha in Alphas]) # type: ignore
-    MxAxis =  np.array([m[1] for m in _M])
-    MyAxis =  np.array([m[2] for m in _M])
+    num_of_angles = 21
+    list_of_angles = np.linspace(0, 360, num_of_angles)
+    _M =  np.array([PMMsolver.calc_Mn(data, P, angle) for angle in list_of_angles]) # type: ignore
+    MxAxis = _M[:,1] #np.array([m[1] for m in _M])
+    MyAxis = _M[:,2] #np.array([m[2] for m in _M])
 
     sectionCoords = np.array(section.section.exterior.coords)
     sectionXcoords = sectionCoords[:,0]

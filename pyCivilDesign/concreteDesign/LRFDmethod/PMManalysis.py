@@ -294,7 +294,7 @@ def calc_M(data: DesignData, c: float, angle: float, IsPhi: bool = True) \
     Fszx, Fszy = calc_Fsz(data, c, angle)
     Cc = calc_Cc(data, c, angle)
     Pr = calc_pressure_region(data.section, data.fc, c, angle)
-    rot_pressure_region = rotate(Pr, -angle, Point([0, 0])) if angle!=0 else Pr
+    rot_pressure_region = rotate(Pr, angle, Point([0, 0])) if angle!=0 else Pr # [] TODO: check sign of angle rotation
     zcy = abs(rot_pressure_region.centroid.y)
     zcx = abs(rot_pressure_region.centroid.x)
     es = calc_es(data.section, data.Coords, c, angle)
@@ -322,21 +322,61 @@ def calc_P(data: DesignData, c: float, angle: float, IsPhi: bool = True) -> np.f
 #     data = args[2]
 #     return P - calc_P(data, c, angle)
 
-
-def calc_c(data: DesignData, P: float, angle: float):
+def P_c_half_section(data: DesignData, angle: float):
     rot_section = rotate_section(data.section, angle)
     _, miny, _, maxy = rot_section.bounds
+    c = (maxy-miny)/2
+    return calc_P(data, c, angle)
 
+
+def P_c_full_section(data: DesignData, angle: float):
+    rot_section = rotate_section(data.section, angle)
+    _, miny, _, maxy = rot_section.bounds
+    c = (maxy-miny)
+    return calc_P(data, c, angle)
+
+
+def P_c_double_section(data: DesignData, angle: float):
+    rot_section = rotate_section(data.section, angle)
+    _, miny, _, maxy = rot_section.bounds
+    c = (maxy-miny)/2
+    return calc_P(data, c, angle)
+
+
+def calc_c(data: DesignData, P: float, angle: float):
     def _optim_F(x):
         c = x[0]
         return P - calc_P(data, c, angle)
-
-    result = opt.root(fun=_optim_F, x0=((maxy-miny)/2, ))
-    return result.x[0]
+    
+    rot_section = rotate_section(data.section, angle)
+    _, miny, _, maxy = rot_section.bounds
+    p0 = P_c_half_section(data, angle)
+    p1 = P_c_full_section(data, angle)
+    p2 = P_c_double_section(data, angle)
+    if P<= p0:
+        _x0 = (maxy-miny)*(1/4)
+        lbound = 0.0001
+        ubound = (maxy-miny)*(1/2)
+    elif p0 < P <= p1:
+        _x0 = (maxy-miny)*(3/4)
+        lbound = (maxy-miny)*(1/2)
+        ubound = (maxy-miny)
+    elif p1 < P <= p2:
+        _x0 = (maxy-miny)*(6/4)
+        lbound = (maxy-miny)
+        ubound = (maxy-miny)*2
+    else:
+        _x0 = (maxy-miny)*(8/4)
+        lbound = (maxy-miny)*2
+        ubound = (maxy-miny)*5
+    # result = opt.root(fun=_optim_F, method="lm", x0=(_x0, ))
     # return result.x[0]
-    # return opt.least_squares(_optim_F, ((maxy-miny),), 
-    #                      bounds=((0.00001), (5*(maxy-miny))), 
-    #                      args=(P, angle, data)).x[0]
+    return opt.least_squares(_optim_F, (_x0,), 
+                         bounds=((lbound), (ubound))).x[0]
+
+
+def calc_max_c(data: DesignData, angle: float):
+    return calc_c(data, calc_P0(data), angle)
 
 
 def _optim_max_M(x, *args):
@@ -379,7 +419,7 @@ def calc_PM_ratio(data: DesignData, P: float, Mx: float, My: float) -> np.float3
 
 def calc_Mn(data: DesignData, P: float, angle: float) -> Tuple[np.float32, np.float32, np.float32]:
     c = calc_c(data, P, angle)
-    M, Mx, My = calc_M(data, float(c), angle)
+    M, Mx, My = calc_M(data, c, angle)
     return M, Mx, My
 
 

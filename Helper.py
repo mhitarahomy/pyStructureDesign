@@ -21,18 +21,20 @@ data = props.setDesignDataFromSection(sct)
 # print(Fs)
 # print(PMManalysis.calc_Mn(data, 6e6, 0))
 # print(PMManalysis.calc_P(data, -226.5, 31))
-# print(PMManalysis.calc_c(data, 1.96e6, 31))
+# print(PMManalysis.calc_c(data, 4e6, 45))
 
 
 
 # print(Manalysis.calc_c(data))
 
 # print(LRFD.PMM_analyze(sct, 3e6, 5e8, 3e8))
-LRFD.show_PMM_analysis_result(sct, 5e6, 5e8, 3e8)
+LRFD.show_PMM_analysis_result(sct, 2e6, 5e8, 3e8)
 
 
 # fig, axs = plt.subplots()
-# plot_polygon(data.section)
-# plot_polygon(PMManalysis.calc_neutral_region(data.section, 1750, 0))
-# plot_line(PMManalysis.calc_neutral_axis(data.section, 1750, 0))
+# plot_polygon(PMManalysis.rotate_section(data.section, 45))
+# plot_polygon(PMManalysis.calc_neutral_region(data.section, 638, 45))
+# plot_polygon(PMManalysis.calc_pressure_region(data.section, data.fc, 638, 45))
+# plot_line(PMManalysis.calc_neutral_axis(data.section, 638, 45))
+# plot_line(PMManalysis.calc_pressure_axis(data.section, data.fc, 638, 45))
 # plt.show()
