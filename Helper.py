@@ -20,13 +20,15 @@ data = props.setDesignDataFromSection(sct)
 # Fs = PMManalysis.calc_es(data.section, data.Coords, 1750, 0)
 # print(Fs)
 # print(PMManalysis.calc_Mn(data, 6e6, 0))
-# print(PMManalysis.calc_P(data, 428, 30.96))
-# print(PMManalysis.calc_c(data, -1583362.6974092557, 30.963756561279297))
+# print(PMManalysis.calc_P(data, -226.5, 31))
+# print(PMManalysis.calc_c(data, 1.96e6, 31))
+
+
 
 # print(Manalysis.calc_c(data))
 
 # print(LRFD.PMM_analyze(sct, 3e6, 5e8, 3e8))
-LRFD.show_PMM_analysis_result(sct, 4e6, 5e8, 3e8)
+LRFD.show_PMM_analysis_result(sct, 5e6, 5e8, 3e8)
 
 
 # fig, axs = plt.subplots()

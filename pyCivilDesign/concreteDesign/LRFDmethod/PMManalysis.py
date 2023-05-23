@@ -116,7 +116,7 @@ def calc_neutral_axis(section: Polygon, c: float, angle: float) -> LineString:
     Returns:
         LineString: netural line
     """
-    c = c if c>=0.1 else 0.1
+    c = c if c>=0.0001 else 0.0001
     rot_section = rotate_section(section, angle)
     minx, _, maxx, maxy = rot_section.bounds
     return LineString([(maxx+10, maxy-c), (minx-10, maxy-c)])
@@ -133,7 +133,7 @@ def calc_neutral_region(section: Polygon, c: float, angle: float) -> Polygon:
     Returns:
         Polygon: neutral region shape
     """
-    c = c if c>=0.1 else 0.1
+    c = c if c>=0.0001 else 0.0001
     rot_section = rotate_section(section, angle)
     minx, _, maxx, maxy = rot_section.bounds
     topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-c),
@@ -156,7 +156,7 @@ def calc_max_pressure_point(section: Polygon, c: float, angle: float) -> np.floa
     Returns:
         np.float32: maximum distance of pressure point
     """
-    c = c if c>=0.1 else 0.1
+    c = c if c>=0.0001 else 0.0001
     neutral_line = calc_neutral_axis(section, c, angle)
     neutral_region = calc_neutral_region(section, c, angle)
     return np.max([neutral_line.distance(Point(p)) for p in list(neutral_region.exterior.coords)])
@@ -174,7 +174,7 @@ def calc_pressure_axis(section: Polygon, fc: np.float32, c: float, angle: float)
     Returns:
         LineString: pressure line
     """
-    c = c if c>=0.1 else 0.1
+    c = c if c>=0.0001 else 0.0001
     max_pressure_point = calc_max_pressure_point(section, c, angle)
     neutral_line = calc_neutral_axis(section, c, angle)
     return neutral_line.parallel_offset(distance=max_pressure_point*
@@ -193,7 +193,7 @@ def calc_pressure_region(section: Polygon, fc: np.float32, c: float, angle: floa
     Returns:
         Polygon: pressure region
     """
-    c = c if c>=0.1 else 0.1
+    c = c if c>=0.0001 else 0.0001
     rot_section = rotate_section(section, angle) if angle!=0 else section
     minx, _, maxx, maxy = rot_section.bounds
     top_area = Polygon([(maxx+10, maxy), (maxx+10, maxy-(0.85*c)),
@@ -306,30 +306,37 @@ def calc_M(data: DesignData, c: float, angle: float, IsPhi: bool = True) \
 
 
 def calc_P(data: DesignData, c: float, angle: float, IsPhi: bool = True) -> np.float32:
+    # c = c if c>=0.0001 else 0.0001
     Fs = calc_Fs(data, c, angle)
     Cc = calc_Cc(data, c, angle) 
     es = calc_es(data.section, data.Coords, c, angle)
     phi = assump.phif(data.fy, data.Es, min(es))
-    return phi*(Cc+sum(Fs)) if IsPhi else Cc+sum(Fs)
+    _P = phi*(Cc+sum(Fs)) if IsPhi else Cc+sum(Fs)
+    return _P if c>=0.0001 else 0
 
 
-def _optim_F(x, *args):
-    c = x[0]
-    P = args[0]
-    angle = args[1]
-    data = args[2]
-    return P - calc_P(data, c, angle)
+# def _optim_F(x, *args):
+#     c = x[0]
+#     P = args[0]
+#     angle = args[1]
+#     data = args[2]
+#     return P - calc_P(data, c, angle)
 
 
-def calc_c(data: DesignData, P: float, angle: float) -> np.float32:
+def calc_c(data: DesignData, P: float, angle: float):
     rot_section = rotate_section(data.section, angle)
     _, miny, _, maxy = rot_section.bounds
-    # print((maxy-miny))
-    # result = opt.root(fun=_optim_F, method="lm", x0=((maxy-miny),), args=(P, angle, data))
+
+    def _optim_F(x):
+        c = x[0]
+        return P - calc_P(data, c, angle)
+
+    result = opt.root(fun=_optim_F, x0=((maxy-miny)/2, ))
+    return result.x[0]
     # return result.x[0]
-    return opt.least_squares(_optim_F, ((maxy-miny),), 
-                         bounds=((0.00001), (5*(maxy-miny))), 
-                         args=(P, angle, data)).x[0]
+    # return opt.least_squares(_optim_F, ((maxy-miny),), 
+    #                      bounds=((0.00001), (5*(maxy-miny))), 
+    #                      args=(P, angle, data)).x[0]
 
 
 def _optim_max_M(x, *args):

@@ -72,7 +72,6 @@ def PMM_design(section: ConcreteSct, P: float, Mx: float, My: float):
 
 def show_PMM_analysis_result(section: ConcreteSct, P: float, Mx: float, My: float):
     data = setDesignDataFromSection(section)
-    print(data.section)
     M = pow(Mx**2 + My**2, 0.5)
     ratio = PMMsolver.calc_PM_ratio(data, P, Mx, My)
 
