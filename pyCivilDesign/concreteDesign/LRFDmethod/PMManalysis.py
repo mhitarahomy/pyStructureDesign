@@ -7,7 +7,8 @@ from shapely import Polygon, LineString, Point
 from shapely.affinity import rotate
 from shapely.ops import polygonize
 
-import scipy.optimize as opt
+# import scipy.optimize as opt
+from scipy.interpolate import interp1d
 
 from pyCivilDesign.concreteDesign.designProps import DesignData
 import pyCivilDesign.concreteDesign.LRFDmethod.assumptions as assump
@@ -23,7 +24,7 @@ def set_As_percent(data: DesignData, percent: float) -> DesignData:
     return set_As(data, np.array([totalAs/ len(data.As) for i in range(len(data.As))]))
 
 
-def As_percent(data: DesignData) -> np.float32:
+def get_As_percent(data: DesignData) -> np.float32:
     return (np.sum(data.As)/data.section.area)*100
 
 
@@ -47,35 +48,17 @@ def calc_alpha(Mx: float, My: float) -> np.float32:
     return np.float32(alpha)
 
 
-def _optim_angle(x, *args):
-    _angle = x[0]
-    _P = args[0]
-    _alpha = args[1]
-    _data = args[2]
-    _, _Mx, _My = calc_Mn(_data, _P, _angle)
-    return abs(calc_alpha(_Mx, _My)-_alpha) # type: ignore
-
-
-def calc_angle_from_forces(data: DesignData, P: float, Mx: float, My: float) -> np.float32:
+def calc_angle(data, P, Mx, My, num=10):
     alpha = calc_alpha(Mx, My)
-    lAngle = 0 if 0<=alpha<=90 else 90 if 90<alpha<=180 else\
+    lbound = 0 if 0<=alpha<=90 else 90 if 90<alpha<=180 else\
          180 if 180<alpha<=270 else 270
-    uAngle = 90 if 0<=alpha<=90 else 180 if 90<alpha<=180 else\
+    ubound = 90 if 0<=alpha<=90 else 180 if 90<alpha<=180 else\
          270 if 180<alpha<=270 else 360
-    output = opt.root(fun=_optim_angle, method="lm", x0=(alpha, ), args=(P, alpha, data))
-    # output = opt.least_squares(_optim_angle, (alpha), bounds=((lAngle), (uAngle)),
-    #                        args=(P, alpha, data))
-    return output.x[0]
-
-
-def calc_angle_from_alpha(data:DesignData, P:float, alpha:float) -> np.float32:
-    lAngle = 0 if 0<=alpha<=90 else 90 if 90<alpha<=180 else\
-         180 if 180<alpha<=270 else 270
-    uAngle = 90 if 0<=alpha<=90 else 180 if 90<alpha<= 180 else\
-         270 if 180<alpha<=270 else 360
-    output = opt.least_squares(_optim_angle, (alpha), bounds=((lAngle), (uAngle)),
-                           args=(P, alpha, data))
-    return output.x[0]
+    angle_list = np.linspace(lbound, ubound, num=num)
+    M_list = np.array([calc_Mn(data, P, _angle) for _angle in angle_list])
+    alpha_list = np.array([calc_alpha(_M[1], _M[2]) for _M in M_list])
+    func = interp1d(alpha_list, angle_list)
+    return func(alpha)
 
 
 def rotate_section(section: Polygon, angle: float) -> Polygon:
@@ -312,137 +295,66 @@ def calc_P(data: DesignData, c: float, angle: float, IsPhi: bool = True) -> np.f
     es = calc_es(data.section, data.Coords, c, angle)
     phi = assump.phif(data.fy, data.Es, min(es))
     _P = phi*(Cc+sum(Fs)) if IsPhi else Cc+sum(Fs)
-    return _P if c>=0.0001 else 0
+    return _P
 
 
-# def _optim_F(x, *args):
-#     c = x[0]
-#     P = args[0]
-#     angle = args[1]
-#     data = args[2]
-#     return P - calc_P(data, c, angle)
-
-def P_c_half_section(data: DesignData, angle: float):
-    rot_section = rotate_section(data.section, angle)
-    _, miny, _, maxy = rot_section.bounds
-    c = (maxy-miny)/2
-    return calc_P(data, c, angle)
-
-
-def P_c_full_section(data: DesignData, angle: float):
-    rot_section = rotate_section(data.section, angle)
-    _, miny, _, maxy = rot_section.bounds
-    c = (maxy-miny)
-    return calc_P(data, c, angle)
+def calc_Pc_list(data, angle, interval=20):
+    c_list = np.array([0,], dtype=np.float32)
+    P_list = np.array([calc_Pt_max(data),], dtype=np.float32)
+    c=0.1
+    while True:
+        _P = calc_P(data, c, angle)
+        c_list = np.append(c_list, c)
+        P_list = np.append(P_list, _P)
+        if (calc_M(data, c, angle)[0] < 100) and \
+           (calc_P(data, c, angle) > calc_P0(data)) : break
+        c += interval
+    return P_list, c_list
 
 
-def P_c_double_section(data: DesignData, angle: float):
-    rot_section = rotate_section(data.section, angle)
-    _, miny, _, maxy = rot_section.bounds
-    c = (maxy-miny)/2
-    return calc_P(data, c, angle)
+def calc_PM_list(data, angle):
+    P_list, c_list = calc_Pc_list(data, angle)
+    M_list = np.array([calc_M(data, _c, angle) for _c in c_list], dtype=np.float32)
+    M_list = M_list.reshape(-1, 3)
+    return P_list, M_list
 
 
-def calc_c(data: DesignData, P: float, angle: float):
-    def _optim_F(x):
-        c = x[0]
-        return P - calc_P(data, c, angle)
-    
-    rot_section = rotate_section(data.section, angle)
-    _, miny, _, maxy = rot_section.bounds
-    p0 = P_c_half_section(data, angle)
-    p1 = P_c_full_section(data, angle)
-    p2 = P_c_double_section(data, angle)
-    if P<= p0:
-        _x0 = (maxy-miny)*(1/4)
-        lbound = 0.0001
-        ubound = (maxy-miny)*(1/2)
-    elif p0 < P <= p1:
-        _x0 = (maxy-miny)*(3/4)
-        lbound = (maxy-miny)*(1/2)
-        ubound = (maxy-miny)
-    elif p1 < P <= p2:
-        _x0 = (maxy-miny)*(6/4)
-        lbound = (maxy-miny)
-        ubound = (maxy-miny)*2
-    else:
-        _x0 = (maxy-miny)*(8/4)
-        lbound = (maxy-miny)*2
-        ubound = (maxy-miny)*5
-    # result = opt.root(fun=_optim_F, method="lm", x0=(_x0, ))
-    # return result.x[0]
-    return opt.least_squares(_optim_F, (_x0,), 
-                         bounds=((lbound), (ubound))).x[0]
-
-
-def calc_max_c(data: DesignData, angle: float):
-    return calc_c(data, calc_P0(data), angle)
-
-
-def _optim_max_M(x, *args):
-    _P = x[0]
-    _angle = args[0]
-    _data = args[1]
-    _c = calc_c(_data, _P, _angle)
-    # _c = least_squares(_optim_F, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), 
-    #                    args=(_P, _angle, _data)).x[0]
-    return -calc_M(_data, _c, _angle)[0] # type: ignore
-
-
-def calc_PM_max(data: DesignData, angle: float) -> Tuple[np.float32, np.float32]:
-    output = opt.minimize(_optim_max_M, ((calc_P0(data)/2)), method="L-BFGS-B", args=(angle, data))
-    return output.x[0], -output.fun
-
-
-def _optim_M(x, *args):
-    _P = x[0]
-    _angle = args[0]
-    _e0 = args[1]
-    _data = args[2]
-    _c = calc_c(_data, _P, _angle)
-    # _c = opt.least_squares(_optim_F, ((maxy-miny)/2), bounds=((0.00001), (5*(maxy-miny))), 
-    #                    args=(_P, _angle, _data)).x[0]
-    return abs(calc_M(_data, _c, _angle)[0]/_P - _e0) # type: ignore
+def calc_PM_max(data: DesignData, angle: float) -> Tuple[np.float32, np.float32]: # type: ignore
+    _, M_list = calc_PM_list(data, angle)
+    return np.max(M_list[:,0]) # type: ignore
 
 
 def calc_PM_ratio(data: DesignData, P: float, Mx: float, My: float) -> np.float32:
-    angle = calc_angle_from_forces(data, P, Mx, My)
     M = pow(Mx**2 + My**2, 0.5)
-    # result = opt.root(fun=_optim_M, method="lm", x0=((calc_P0(data)+calc_Pt_max(data))/2,), args=(angle, M/P, data))
-    # _P = result.x[0]
-    _P = opt.least_squares(_optim_M, ((calc_P0(data)+calc_Pt_max(data))/2), 
-                       bounds=((calc_Pt_max(data)), (calc_P0(data))), 
-                       args=(angle, M/P, data)).x[0] if P != 0 else 1
-    _M = calc_Mn(data, _P, angle)[0] # type: ignore
-    return np.float32(P/_P if (P/_P) != 0 else M/_M)
+    angle = calc_angle(data, P, Mx, My)
+    e = M/P
+    P_list, M_list = calc_PM_list(data, angle)
+    M_custom = np.max(M_list[:,0]) * 1.1
+    P_custom = M_custom/e
+    PM_line = LineString(list(zip(M_list[:,0], P_list)))
+    PMx_line = LineString([(0, 0), (M_custom, P_custom)])
+    inter_point = PM_line.intersection(PMx_line)
+    _M = inter_point.x
+    _P = inter_point.y
+    return P/_P if P!=0 else M/_M
 
 
-def calc_Mn(data: DesignData, P: float, angle: float) -> Tuple[np.float32, np.float32, np.float32]:
-    c = calc_c(data, P, angle)
-    M, Mx, My = calc_M(data, c, angle)
-    return M, Mx, My
+def calc_Mn(data, P, angle):
+    func_c = interp1d(*calc_Pc_list(data, angle))
+    return calc_M(data, func_c(P), angle) 
 
 
-def _optim_percent(x, *args):
-    percent = x[0]
-    P = args[0]
-    Mx = args[1]
-    My = args[2]
-    data = args[3]
-    Data = set_As_percent(data, percent)
-    return calc_PM_ratio(Data, P, Mx, My) - 1
-
-
-def calc_As_percent(data:DesignData, P: float, Mx: float, My: float) -> np.float32:
-    maxPercent = np.float32(10)
-    minPercent = np.float32(0.1)
-    e = 1
-    percent = np.float32(0)
-    while abs(e) > 0.01:
-        percent = np.float32((maxPercent + minPercent)/2)
-        data = set_As_percent(data, percent) # type: ignore
-        e = calc_PM_ratio(data, P, Mx, My) - 1
-        maxPercent = (maxPercent + minPercent)/2 if e<0 else maxPercent
-        minPercent = minPercent if e<0 else (maxPercent + minPercent)/2
-    return percent
-    # return least_squares(_optim_percent, (4,), args=(P, Mx, My, data)).x[0]
+def calc_percent(data, P, Mx, My, ratio=1, num=8):
+    data_one_percent = set_As_percent(data, 1)
+    data_eight_percent = set_As_percent(data, 8)
+    if calc_PM_ratio(data_one_percent, P, Mx, My) <= 1:  # type: ignore
+        output_percent = 1
+    elif calc_PM_ratio(data_eight_percent, P, Mx, My) > 1: # type: ignore
+        raise ValueError("section is weak")
+    else:
+        percent_list = np.linspace(1, 8, num=num, dtype=np.float32)
+        data_list = np.array([set_As_percent(data, percent) for percent in percent_list])
+        PM_ratio_list = np.array([calc_PM_ratio(_data, P, Mx, My) for _data in data_list], dtype=np.float32) # type: ignore
+        func = interp1d(PM_ratio_list, percent_list)
+        output_percent = func(ratio)
+    return output_percent

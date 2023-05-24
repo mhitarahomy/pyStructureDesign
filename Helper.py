@@ -19,7 +19,12 @@ data = props.setDesignDataFromSection(sct)
 
 # Fs = PMManalysis.calc_es(data.section, data.Coords, 1750, 0)
 # print(Fs)
-# print(PMManalysis.calc_Mn(data, 6e6, 0))
+# print(PMManalysis.calc_Mn(data, 4e6, 0))
+# print(PMManalysis.calc_PM_ratio(data, 4e6, 4e8, 2e8, angle))
+# print(PMManalysis.calc_percent(data, 4e6, 5e8, 4e8))
+data_p = PMManalysis.set_As_percent(data, 1.691153300645965)
+print(PMManalysis.calc_PM_ratio(data_p, 4e6, 4e8, 2e8))
+
 # print(PMManalysis.calc_P(data, -226.5, 31))
 # print(PMManalysis.calc_c(data, 4e6, 45))
 
@@ -28,7 +33,7 @@ data = props.setDesignDataFromSection(sct)
 # print(Manalysis.calc_c(data))
 
 # print(LRFD.PMM_analyze(sct, 3e6, 5e8, 3e8))
-LRFD.show_PMM_analysis_result(sct, 2e6, 5e8, 3e8)
+# LRFD.show_PMM_analysis_result(sct, 2e6, 5e8, 3e8)
 
 
 # fig, axs = plt.subplots()
