@@ -51,7 +51,7 @@ class SteelMat(StructuralMaterial):
 class RebarMat(StructuralMaterial):
     fy: float
     fu: float
-    E: float = field(init=False, default=2000000)
+    E: float = field(init=False, default=200000)
     density: float = field(init=False, default=7849.05)
     nu: float = field(init=False, default=0.3)
     A: float = field(init=False, default=12e-6)
