@@ -7,8 +7,7 @@ from shapely import Polygon, LineString, Point
 from shapely.affinity import rotate
 from shapely.ops import polygonize
 
-# import scipy.optimize as opt
-from scipy.interpolate import interp1d
+from scipy.optimize import root_scalar
 
 from pyCivilDesign.concreteDesign.designProps import DesignData
 import pyCivilDesign.concreteDesign.LRFDmethod.assumptions as assump
@@ -19,18 +18,22 @@ def set_As(data: DesignData, As: NDArray[np.float32]) -> DesignData:
                       fyt=data.fyt, fc=data.fc, Coords=data.Coords, As=As, Es=data.Es)
 
 
+def get_As_percent(data: DesignData) -> np.float32:
+    return (np.sum(data.As)/data.section.area)*100
+
+
 def set_As_percent(data: DesignData, percent: float) -> DesignData:
     totalAs = data.section.area * (percent/100)
     return set_As(data, np.array([totalAs/ len(data.As) for i in range(len(data.As))]))
 
 
-def get_As_percent(data: DesignData) -> np.float32:
-    return (np.sum(data.As)/data.section.area)*100
-
-
 def calc_P0(data: DesignData) -> np.float32:
-    return 0.65 * (0.85 * data.fc * (data.section.area - sum(data.As))\
-                   + sum(data.As)*data.fy)
+    return (0.85 * data.fc * (data.section.area - sum(data.As)))\
+                   + (sum(data.As)*data.fy)
+
+
+def calc_phi_P0(data: DesignData) -> np.float32:
+    return 0.65 * calc_P0(data)
 
 
 def calc_Pn_max(data: DesignData) -> np.float32:
@@ -42,23 +45,44 @@ def calc_Pt_max(data: DesignData) -> np.float32:
 
 
 def calc_alpha(Mx: float, My: float) -> np.float32:
+    """angle between Mx & My on M-M chart
+
+    Args:
+        Mx (float): x direction moment
+        My (float): y direction moment
+
+    Returns:
+        np.float32: alpha
+    """
     alpha = np.degrees(np.arctan(abs(My/Mx))) if Mx != 0 else 90
     alpha = alpha if (Mx>=0 and My>=0) else 180-alpha if (Mx<0 and My>0) else \
         180+alpha if (Mx<0 and My<0) else 360-alpha if (Mx>0 and My<0) else alpha
     return np.float32(alpha)
 
 
-def calc_angle(data, P, Mx, My, num=10):
+def calc_angle(data: DesignData, P: float, Mx: float, My: float) -> np.float32:
+    """calculate angle of rotation for section on PMM force
+
+    Args:
+        data (DesignData): design data
+        P (float): axial force
+        Mx (float): x direction moment
+        My (float): y direction moment
+
+    Returns:
+        np.float32: angle of rotation
+    """
     alpha = calc_alpha(Mx, My)
+    def _optim_angle(x):
+        c = calc_c(data, P, x)
+        _, _Mx, _My = calc_M(data, c, x)
+        return calc_alpha(_Mx, _My) - alpha # type: ignore
+    
     lbound = 0 if 0<=alpha<=90 else 90 if 90<alpha<=180 else\
          180 if 180<alpha<=270 else 270
     ubound = 90 if 0<=alpha<=90 else 180 if 90<alpha<=180 else\
          270 if 180<alpha<=270 else 360
-    angle_list = np.linspace(lbound, ubound, num=num)
-    M_list = np.array([calc_Mn(data, P, _angle) for _angle in angle_list])
-    alpha_list = np.array([calc_alpha(_M[1], _M[2]) for _M in M_list])
-    func = interp1d(alpha_list, angle_list)
-    return func(alpha)
+    return root_scalar(_optim_angle, bracket=[lbound, ubound]).root
 
 
 def rotate_section(section: Polygon, angle: float) -> Polygon:
@@ -102,7 +126,7 @@ def calc_neutral_axis(section: Polygon, c: float, angle: float) -> LineString:
     c = c if c>=0.0001 else 0.0001
     rot_section = rotate_section(section, angle)
     minx, _, maxx, maxy = rot_section.bounds
-    return LineString([(maxx+10, maxy-c), (minx-10, maxy-c)])
+    return LineString([(maxx+10, maxy-c), (minx-10, maxy-c)]) # type: ignore
 
 
 def calc_neutral_region(section: Polygon, c: float, angle: float) -> Polygon:
@@ -298,63 +322,78 @@ def calc_P(data: DesignData, c: float, angle: float, IsPhi: bool = True) -> np.f
     return _P
 
 
-def calc_Pc_list(data, angle, interval=20):
-    c_list = np.array([0,], dtype=np.float32)
-    P_list = np.array([calc_Pt_max(data),], dtype=np.float32)
-    c=0.1
-    while True:
-        _P = calc_P(data, c, angle)
-        c_list = np.append(c_list, c)
-        P_list = np.append(P_list, _P)
-        if (calc_M(data, c, angle)[0] < 100) and \
-           (calc_P(data, c, angle) > calc_P0(data)) : break
-        c += interval
+def calc_c_max(data, angle):
+    ety = data.fy / data.Es
+    rot_section = rotate_section(data.section, angle)
+    _, _, _, maxy = rot_section.bounds
+    rot_Coords = rotate_rebar_coords(data.Coords, angle)
+    miny_rebar = np.min([point.y for point in rot_Coords])
+    dt = maxy - miny_rebar
+    return dt / (1-(ety/assump.ecu))
+
+
+def calc_c(data, P, angle):
+    def _optim_c(x):
+        return calc_P(data, x, angle) - P
+    c_max = calc_c_max(data, angle)
+    return root_scalar(_optim_c, bracket=[0.0001, c_max]).root
+
+
+def calc_Pc_list(data, angle, num=20, is_phi=True):
+    c_max = calc_c_max(data, angle)
+    c_list = np.linspace(1e-6, c_max, num=num, dtype=np.float32)
+    P_list = np.array([calc_P(data, _c, angle, is_phi) for _c in c_list], dtype=np.float32)
     return P_list, c_list
 
 
-def calc_PM_list(data, angle):
-    P_list, c_list = calc_Pc_list(data, angle)
-    M_list = np.array([calc_M(data, _c, angle) for _c in c_list], dtype=np.float32)
+def calc_PM_list(data, angle, num=20, is_phi=True):
+    P_list, c_list = calc_Pc_list(data, angle, num, is_phi)
+    M_list = np.array([calc_M(data, _c, angle, is_phi) for _c in c_list], dtype=np.float32)
     M_list = M_list.reshape(-1, 3)
     return P_list, M_list
 
 
-def calc_PM_max(data: DesignData, angle: float) -> Tuple[np.float32, np.float32]: # type: ignore
-    _, M_list = calc_PM_list(data, angle)
-    return np.max(M_list[:,0]) # type: ignore
+def calc_Mn(data, P, angle):
+    c = calc_c(data, P, angle)
+    return calc_M(data, c, angle)
 
 
-def calc_PM_ratio(data: DesignData, P: float, Mx: float, My: float) -> np.float32:
+def calc_PM_max(data: DesignData, angle: float) -> np.float32:
+    _, M_list = calc_PM_list(data, angle, num=50)
+    return np.max(M_list[:,0])
+
+
+def calc_PM_ratio(data, P, Mx, My, angle:float|None=None):
+    if angle == None: angle = calc_angle(data, P, Mx, My)
     M = pow(Mx**2 + My**2, 0.5)
-    angle = calc_angle(data, P, Mx, My)
     e = M/P
     P_list, M_list = calc_PM_list(data, angle)
     M_custom = np.max(M_list[:,0]) * 1.1
     P_custom = M_custom/e
+
     PM_line = LineString(list(zip(M_list[:,0], P_list)))
     PMx_line = LineString([(0, 0), (M_custom, P_custom)])
+    
     inter_point = PM_line.intersection(PMx_line)
     _M = inter_point.x
     _P = inter_point.y
     return P/_P if P!=0 else M/_M
 
 
-def calc_Mn(data, P, angle):
-    func_c = interp1d(*calc_Pc_list(data, angle))
-    return calc_M(data, func_c(P), angle) 
-
-
 def calc_percent(data, P, Mx, My, ratio=1, num=8):
+    angle = calc_angle(data, P, Mx, My)
+    def _optim_percent(x):
+        data_percent = set_As_percent(data, x)
+        c = calc_c(data_percent, P, angle)
+        return calc_M(data_percent, c, angle)[0] - pow(Mx**2+My**2, 0.5)
+    
     data_one_percent = set_As_percent(data, 1)
     data_eight_percent = set_As_percent(data, 8)
-    if calc_PM_ratio(data_one_percent, P, Mx, My) <= 1:  # type: ignore
+    if calc_PM_ratio(data_one_percent, P, Mx, My, angle) <= 1: 
         output_percent = 1
-    elif calc_PM_ratio(data_eight_percent, P, Mx, My) > 1: # type: ignore
+    elif calc_PM_ratio(data_eight_percent, P, Mx, My, angle) > 1:
         raise ValueError("section is weak")
     else:
-        percent_list = np.linspace(1, 8, num=num, dtype=np.float32)
-        data_list = np.array([set_As_percent(data, percent) for percent in percent_list])
-        PM_ratio_list = np.array([calc_PM_ratio(_data, P, Mx, My) for _data in data_list], dtype=np.float32) # type: ignore
-        func = interp1d(PM_ratio_list, percent_list)
-        output_percent = func(ratio)
+        output_percent = root_scalar(_optim_percent, bracket=[1, 8])
     return output_percent
+
