@@ -14,33 +14,124 @@ import pyCivilDesign.concreteDesign.LRFDmethod.assumptions as assump
 
 
 def set_As(data: DesignData, As: NDArray[np.float32]) -> DesignData:
+    """create design data with new array of rebar area
+
+    Args:
+        data (DesignData): design data
+        As (NDArray[np.float32]): array of rebar area, [mm2]
+
+    Returns:
+        DesignData: design data
+    """
     return DesignData(section=data.section, bw=data.bw, d=data.d, fy= data.fy, 
                       fyt=data.fyt, fc=data.fc, Coords=data.Coords, As=As, Es=data.Es)
 
 
 def get_As_percent(data: DesignData) -> np.float32:
+    """get percent of rebars area to concrete area
+
+    Args:
+        data (DesignData): design data
+
+    Returns:
+        np.float32: percent, %
+    """
     return (np.sum(data.As)/data.section.area)*100
 
 
 def set_As_percent(data: DesignData, percent: float) -> DesignData:
+    """create new design data with percent of rebars area to concrete area
+
+    Args:
+        data (DesignData): design data
+        percent (float): percent, %
+
+    Returns:
+        DesignData: new design data
+    """
     totalAs = data.section.area * (percent/100)
     return set_As(data, np.array([totalAs/ len(data.As) for i in range(len(data.As))]))
 
 
 def calc_P0(data: DesignData) -> np.float32:
+    """calculate nominal axial strength at zero eccentricity according to 
+    ACI 318-19 (22.4.2.2) 
+
+    Args:
+        data (DesignData): design data
+
+    Returns:
+        np.float32: nominal axial strength at zero eccentricity, N 
+    """
     return (0.85 * data.fc * (data.section.area - sum(data.As)))\
                    + (sum(data.As)*data.fy)
 
 
 def calc_phi_P0(data: DesignData) -> np.float32:
+    """calculate nominal axial strength at zero eccentricity according to 
+    ACI 318-19 (22.4.2.2) considering to strength reduction factor
+
+    Args:
+        data (DesignData): design data
+
+    Returns:
+        np.float32: nominal axial strength at zero eccentricity 
+        considering to strength reduction factor, N
+    """
     return 0.65 * calc_P0(data)
 
 
 def calc_Pn_max(data: DesignData) -> np.float32:
+    """calculate maximum nominal axial compressive strength of a member
+    according to ACI 318-19 (22.4.2.1)
+
+    Args:
+        data (DesignData): design data
+
+    Returns:
+        np.float32: maximum nominal axial compressive strength of a member, N
+    """
     return 0.8 * calc_P0(data)
 
 
-def calc_Pt_max(data: DesignData) -> np.float32:
+def calc_phi_Pn_max(data: DesignData) -> np.float32:
+    """calculate maximum nominal axial compressive strength of a member
+    according to ACI 318-19 (22.4.2.1) considering to strength reduction factor
+
+    Args:
+        data (DesignData): design data
+
+    Returns:
+        np.float32: maximum nominal axial compressive strength of a member 
+        considering to strength reduction factor, N
+    """
+    return 0.65 * 0.8 * calc_P0(data)
+
+
+def calc_Pnt_max(data: DesignData) -> np.float32:
+    """calculate maximum nominal axial compressive strength of a member
+    according to ACI 318-19 (22.4.3.1)
+
+    Args:
+        data (DesignData): design data
+
+    Returns:
+        np.float32: maximum nominal axial compressive strength of a member, N
+    """
+    return -0.9 * (sum(data.As) * data.fy)
+
+
+def calc_phi_Pnt_max(data: DesignData) -> np.float32:
+    """calculate maximum nominal axial compressive strength of a member 
+    according to ACI 318-19 (22.4.3.1) considering to strength reduction factor
+
+    Args:
+        data (DesignData): design data
+
+    Returns:
+        np.float32: maximum nominal axial compressive strength of a member 
+        considering to strength reduction factor, N
+    """
     return -0.9 * (sum(data.As) * data.fy)
 
 
@@ -48,11 +139,11 @@ def calc_alpha(Mx: float, My: float) -> np.float32:
     """angle between Mx & My on M-M chart
 
     Args:
-        Mx (float): x direction moment
-        My (float): y direction moment
+        Mx (float): x direction moment, N.mm
+        My (float): y direction moment, N.mm
 
     Returns:
-        np.float32: alpha
+        np.float32: alpha, degree
     """
     alpha = np.degrees(np.arctan(abs(My/Mx))) if Mx != 0 else 90
     alpha = alpha if (Mx>=0 and My>=0) else 180-alpha if (Mx<0 and My>0) else \
@@ -60,17 +151,17 @@ def calc_alpha(Mx: float, My: float) -> np.float32:
     return np.float32(alpha)
 
 
-def calc_angle(data: DesignData, P: float, Mx: float, My: float) -> np.float32:
+def calc_angle(data: DesignData, P: float, Mx: float, My: float) -> float:
     """calculate angle of rotation for section on PMM force
 
     Args:
         data (DesignData): design data
-        P (float): axial force
-        Mx (float): x direction moment
-        My (float): y direction moment
+        P (float): axial force, N
+        Mx (float): x direction moment, N.mm
+        My (float): y direction moment, N.mm
 
     Returns:
-        np.float32: angle of rotation
+        np.float32: angle of rotation, degree
     """
     alpha = calc_alpha(Mx, My)
     def _optim_angle(x):
@@ -143,8 +234,8 @@ def calc_neutral_region(section: Polygon, c: float, angle: float) -> Polygon:
     c = c if c>=0.0001 else 0.0001
     rot_section = rotate_section(section, angle)
     minx, _, maxx, maxy = rot_section.bounds
-    topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-c),
-                      (minx-10, maxy-c), (minx-10, maxy)])
+    topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-c), # type: ignore
+                      (minx-10, maxy-c), (minx-10, maxy)]) # type: ignore
     neutral_line = calc_neutral_axis(section, c, angle)
     unioned = rot_section.boundary.union(neutral_line)
     neutral_region = [poly for poly in polygonize(unioned) if \
@@ -203,8 +294,8 @@ def calc_pressure_region(section: Polygon, fc: np.float32, c: float, angle: floa
     c = c if c>=0.0001 else 0.0001
     rot_section = rotate_section(section, angle) if angle!=0 else section
     minx, _, maxx, maxy = rot_section.bounds
-    top_area = Polygon([(maxx+10, maxy), (maxx+10, maxy-(0.85*c)),
-                      (minx-10, maxy-(0.85*c)), (minx-10, maxy)])
+    top_area = Polygon([(maxx+10, maxy), (maxx+10, maxy-(0.85*c)), # type: ignore
+                      (minx-10, maxy-(0.85*c)), (minx-10, maxy)]) # type: ignore
     pressure_line = calc_pressure_axis(section, fc, c, angle)
     unioned = rot_section.boundary.union(pressure_line)
     pressure_region = [poly for poly in polygonize(unioned) if \
@@ -322,7 +413,7 @@ def calc_P(data: DesignData, c: float, angle: float, IsPhi: bool = True) -> np.f
     return _P
 
 
-def calc_c_max(data, angle):
+def calc_c_max(data: DesignData, angle: float) -> np.float32:
     ety = data.fy / data.Es
     rot_section = rotate_section(data.section, angle)
     _, _, _, maxy = rot_section.bounds
@@ -332,28 +423,30 @@ def calc_c_max(data, angle):
     return dt / (1-(ety/assump.ecu))
 
 
-def calc_c(data, P, angle):
+def calc_c(data: DesignData, P: float, angle: float) -> float:
     def _optim_c(x):
         return calc_P(data, x, angle) - P
     c_max = calc_c_max(data, angle)
     return root_scalar(_optim_c, bracket=[0.0001, c_max]).root
 
 
-def calc_Pc_list(data, angle, num=20, is_phi=True):
+def calc_Pc_list(data: DesignData, angle: float, num: int=20, is_phi: bool=True) \
+        -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
     c_max = calc_c_max(data, angle)
     c_list = np.linspace(1e-6, c_max, num=num, dtype=np.float32)
     P_list = np.array([calc_P(data, _c, angle, is_phi) for _c in c_list], dtype=np.float32)
     return P_list, c_list
 
 
-def calc_PM_list(data, angle, num=20, is_phi=True):
+def calc_PM_list(data: DesignData, angle: float, num: int=20, is_phi: bool=True) \
+        -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
     P_list, c_list = calc_Pc_list(data, angle, num, is_phi)
     M_list = np.array([calc_M(data, _c, angle, is_phi) for _c in c_list], dtype=np.float32)
     M_list = M_list.reshape(-1, 3)
     return P_list, M_list
 
 
-def calc_Mn(data, P, angle):
+def calc_Mn(data: DesignData, P: float, angle: float) -> Tuple[np.float32, np.float32, np.float32]:
     c = calc_c(data, P, angle)
     return calc_M(data, c, angle)
 
@@ -363,11 +456,11 @@ def calc_PM_max(data: DesignData, angle: float) -> np.float32:
     return np.max(M_list[:,0])
 
 
-def calc_PM_ratio(data, P, Mx, My, angle:float|None=None):
-    if angle == None: angle = calc_angle(data, P, Mx, My)
+def calc_PM_ratio(data, P, Mx, My, angle:float|None=None) -> np.float32:
+    _angle = angle if angle != None else calc_angle(data, P, Mx, My)
     M = pow(Mx**2 + My**2, 0.5)
     e = M/P
-    P_list, M_list = calc_PM_list(data, angle)
+    P_list, M_list = calc_PM_list(data, _angle)
     M_custom = np.max(M_list[:,0]) * 1.1
     P_custom = M_custom/e
 
@@ -380,7 +473,7 @@ def calc_PM_ratio(data, P, Mx, My, angle:float|None=None):
     return P/_P if P!=0 else M/_M
 
 
-def calc_percent(data, P, Mx, My, ratio=1, num=8):
+def calc_percent(data, P, Mx, My) -> float:
     angle = calc_angle(data, P, Mx, My)
     def _optim_percent(x):
         data_percent = set_As_percent(data, x)
