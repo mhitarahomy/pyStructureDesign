@@ -3,7 +3,7 @@ import time
 
 import numpy as np
 
-from scipy import optimize
+from scipy.optimize import root_scalar
 
 from pyCivilDesign.concreteDesign.designProps import DesignData
 import pyCivilDesign.concreteDesign.LRFDmethod.PMManalysis as PMM
@@ -69,17 +69,18 @@ def calc_M(data: DesignData, c: float, IsPhi: bool = True) -> np.float32:
 calc_P = partial(PMM.calc_P, angle=0)
 
 
-def _optim_F(x, *args):
-    c = x[0]
-    data = args[0]
-    return abs(calc_P(data, c))
+def calc_c_max(data: DesignData) -> np.float32:
+    ety = data.fy / data.Es
+    _, _, _, maxy = data.section.bounds
+    miny_rebar = np.min([point.y for point in data.Coords])
+    dt = maxy - miny_rebar
+    return dt / (1-(ety/assump.ecu))
 
 
-def calc_c(data: DesignData) -> np.float32:
-    _, miny, _, maxy = data.section.bounds
-    # result = least_squares(fun=_optim_F, x0=(c0,), bounds=((lbound,), (ubound,)) ,args=(data,))
-    result = optimize.root(fun=_optim_F, method="lm", x0=((maxy-miny)/2,) ,args=(data,))
-    if result.success:
-        return result.x[0]
-    else:
-        raise ValueError("minimize error")
+def calc_c(data: DesignData) -> float:
+    def _optim_c(x):
+        return calc_P(data, x)
+    c_max = calc_c_max(data)
+    return root_scalar(_optim_c, bracket=[0.0001, c_max]).root
+
+
