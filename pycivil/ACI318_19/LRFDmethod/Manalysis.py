@@ -5,9 +5,9 @@ import numpy as np
 
 from scipy.optimize import root_scalar
 
-from pyCivilDesign.concreteDesign.designProps import DesignData
-import pyCivilDesign.concreteDesign.LRFDmethod.PMManalysis as PMM
-import pyCivilDesign.concreteDesign.LRFDmethod.assumptions as assump
+from pycivil.ACI318_19.designProps import DesignData
+import pycivil.ACI318_19.LRFDmethod.PMManalysis as PMM
+import pycivil.ACI318_19.LRFDmethod.assumptions as assump
 
 # def setAs(data: DesignData, As: NDArray[np.float32]) -> DesignData:
 #     return DesignData(section=data.section, bw=data.bw, d=data.d, fy= data.fy, 

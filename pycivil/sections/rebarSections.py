@@ -6,7 +6,7 @@ from math import pi, ceil
 from shapely import Polygon, LineString, Point
 from shapely.affinity import rotate
 
-from pyCivilDesign.sections.section import Edge
+from pycivil.sections.section import Edge
 
 # region Rebar Sections
 @dataclass
@@ -75,12 +75,12 @@ class ConfType(StrEnum):
     Spiral = auto()
 
 
-@dataclass
-class Cover():
-    Top: float
-    Bottom: float
-    Right: float
-    Left: float
+# @dataclass
+# class Cover():
+#     Top: float
+#     Bottom: float
+#     Right: float
+#     Left: float
     
 
 @dataclass
@@ -212,8 +212,8 @@ def QuadrilateralRebars(barShape: List[List[Rebar|GRebars]], cover: Tuple[float,
     coords0 = list(line0.coords)
     coords1 = list(line1.coords)
     #* create lines with coord that sort with y axis descending
-    line00 = LineString(sorted(coords0, key=lambda x: x[1], reverse=True))
-    line11 = LineString(sorted(coords1, key=lambda x: x[1], reverse=True))
+    line00 = LineString(sorted(coords0, key=lambda x: x[1], reverse=True)) # type: ignore
+    line11 = LineString(sorted(coords1, key=lambda x: x[1], reverse=True)) # type: ignore
     #* apply top & bottom covers to lines
     sline = CreateLineWithCover(line00, _cover[0], _cover[1])
     eline = CreateLineWithCover(line11, _cover[0], _cover[1])

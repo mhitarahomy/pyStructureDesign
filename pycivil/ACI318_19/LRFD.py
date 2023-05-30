@@ -1,12 +1,15 @@
 
+
+# ! this file must delete
+
 from dataclasses import dataclass, field
 from matplotlib import pyplot as plt
 
 import numpy as np
 from numpy.typing import NDArray
-import pyCivilDesign.concreteDesign.LRFDmethod.PMManalysis as PMMsolver
-from pyCivilDesign.concreteDesign.designProps import DesignData, setDesignDataFromSection
-from pyCivilDesign.sections.concreteSections import ConcreteSct
+import pycivil.ACI318_19.PMManalysis as PMMsolver
+from pycivil.ACI318_19.designProps import DesignData, setDesignDataFromSection
+from pycivil.sections.concreteSections import ConcreteSct
 
 
 @dataclass
@@ -44,22 +47,22 @@ def PMM_analyze(section: ConcreteSct, P: float, Mx: float, My: float):
     data = DesignData.fromSection(section)
     _ratio = PMMsolver.calc_PM_ratio(data, P, Mx, My)
     _M = pow(Mx**2 + My**2, 0.5)
-    _angle = float(PMMsolver.calc_angle_from_forces(data, P, Mx, My))
+    _angle = float(PMMsolver.calc_angle(data, P, Mx, My))
     _alpha = PMMsolver.calc_alpha(Mx, My)
     _c = float(PMMsolver.calc_c(data, P, _angle)) # type: ignore
     _es = PMMsolver.calc_es(data.section, data.Coords, _c, _angle)
     _fs = PMMsolver.calc_fs(data, _c, _angle)
     _Fs = PMMsolver.calc_Fs(data, _c, _angle)
     _Cc = PMMsolver.calc_Cc(data, _c, _angle)
-    _percent = PMMsolver.As_percent(data)
+    _percent = PMMsolver.get_As_percent(data)
     return PMMresults(_c, _angle, _alpha, _es, _fs, _Fs, _Cc, P, _M, Mx, My, _percent, "", _ratio) # type: ignore
         
 
 def PMM_design(section: ConcreteSct, P: float, Mx: float, My: float):
     data = DesignData.fromSection(section)
-    _percent = PMMsolver.calc_As_percent(data, P, Mx, My)
+    _percent = PMMsolver.calc_percent(data, P, Mx, My)
     data = PMMsolver.set_As_percent(data, _percent) # type: ignore
-    angle = float(PMMsolver.calc_angle_from_forces(data,  P, Mx, My))
+    angle = float(PMMsolver.calc_angle(data,  P, Mx, My))
     c = float(PMMsolver.calc_c(data, P, angle))
     _M, _Mx, _My = PMMsolver.calc_M(data, c, angle)
     alpha = PMMsolver.calc_alpha(data, _Mx, _My) # type: ignore
@@ -78,7 +81,7 @@ def show_PMM_analysis_result(section: ConcreteSct, P: float, Mx: float, My: floa
     angle = PMMsolver.calc_angle_from_forces(data, P, Mx, My) # type: ignore
     alpha = PMMsolver.calc_alpha(Mx, My)
     PointNums = 40
-    Paxis = np.linspace(PMMsolver.calc_Pt_max(data), PMMsolver.calc_P0(data), PointNums, endpoint=True)
+    Paxis = np.linspace(PMMsolver.calc_Pnt_max(data), PMMsolver.calc_P0(data), PointNums, endpoint=True)
     Maxis = np.array([PMMsolver.calc_Mn(data, p, angle)[0] for p in Paxis]) # type: ignore
 
     num_of_angles = 21

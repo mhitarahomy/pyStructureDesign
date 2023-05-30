@@ -9,8 +9,8 @@ from shapely.ops import polygonize
 
 from scipy.optimize import root_scalar
 
-from pyCivilDesign.concreteDesign.designProps import DesignData
-import pyCivilDesign.concreteDesign.LRFDmethod.assumptions as assump
+from pycivil.ACI318_19.designProps import DesignData
+import pycivil.ACI318_19.LRFDmethod.assumptions as assump
 
 
 def set_As(data: DesignData, As: NDArray[np.float32]) -> DesignData:

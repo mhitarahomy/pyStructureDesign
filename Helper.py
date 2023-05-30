@@ -1,12 +1,12 @@
 from matplotlib import pyplot as plt
 import numpy as np
-from pyCivilDesign.sections.concreteSections import showSection, RectConcreteSct
-import pyCivilDesign.sections.rebarSections as Rsct
-import pyCivilDesign.sections.section as Sct
-import pyCivilDesign.concreteDesign.LRFDmethod.PMManalysis as PMManalysis
-import pyCivilDesign.concreteDesign.LRFDmethod.Manalysis as Manalysis
-import pyCivilDesign.concreteDesign.LRFD as LRFD
-import pyCivilDesign.concreteDesign.designProps as props
+from pycivil.sections.concreteSections import showSection, RectConcreteSct
+import pycivil.sections.rebarSections as Rsct
+import pycivil.sections.section as Sct
+import pycivil.ACI318_19.LRFDmethod.PMManalysis as PMManalysis
+import pycivil.ACI318_19.LRFDmethod.Manalysis as Manalysis
+import pycivil.ACI318_19.LRFD as LRFD
+import pycivil.ACI318_19.designProps as props
 from shapely.plotting import plot_polygon, plot_line, plot_points
 
 

@@ -5,9 +5,9 @@ from matplotlib import pyplot as plt
 from shapely import Polygon, Point
 from shapely.plotting import plot_line, plot_points, plot_polygon
 
-from pyCivilDesign.materials import ConcreteMat, RebarMat, AIII, AII, C25
-from pyCivilDesign.sections.rebarSections import RebarCoords
-import pyCivilDesign.sections.section as Sct 
+from pycivil.materials import ConcreteMat, RebarMat, AIII, AII, C25
+from pycivil.sections.rebarSections import GRebars, Rebar, RebarCoords, ConfType
+import pycivil.sections.section as Sct 
 
 
 # * This lambdas is for use in field default_factory 
@@ -26,7 +26,10 @@ class ConcreteSct():
     concMat: ConcreteMat
     lBarMat: RebarMat 
     cBarMat: RebarMat
+    cover: float
     rebarCoords: List[RebarCoords] = field(default_factory=list)
+    conf_rebars: List[Rebar|GRebars] = field(default_factory=list)
+    conf_type: ConfType = field(default=ConfType.Tie)
     
     @property
     def sectionCoords(self) -> ListOfPoints:
@@ -39,12 +42,10 @@ class ConcreteSct():
     @property
     def As(self) -> List[float]:
         return [rcoord.rebar.Area for rcoord in self.rebarCoords]
-       
+    
     @property
-    def d(self) -> float:
-        _, _, _, maxy = self.section.bounds
-        return max(*[maxy - point.y for point in self.Coords]) \
-            if len(self.rebarCoords)!=0 else 0
+    def Av(self) -> List[float]:
+        return [rebar.Area for rebar in self.conf_rebars]
 
 
 @dataclass()
@@ -58,6 +59,7 @@ class RectConcreteSct(ConcreteSct):
     lBarMat: RebarMat = field(default_factory=AIIIdef)
     cBarMat: RebarMat = field(default_factory=AIIdef)
     rebarCoords: List[RebarCoords] = field(default_factory=list)
+    conf_rebars: List[Rebar|GRebars] = field(default_factory=list)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
         super().__setattr__(__name, __value)

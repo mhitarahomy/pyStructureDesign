@@ -1,9 +1,15 @@
 from math import sqrt
 
 import numpy as np
-from pyCivilDesign.concreteDesign.designProps import DesignData
-import pyCivilDesign.concreteDesign.LRFDmethod.assumptions as assump
-from pyCivilDesign.sections.rebarSections import Rebar, GRebars
+from pycivil.ACI318_19.designProps import DesignData
+import pycivil.ACI318_19.assumptions as assump
+from pycivil.sections.rebarSections import Rebar, GRebars
+
+
+def calc_d(data: DesignData) -> float:
+    _, _, _, maxy = data.section.bounds
+    return np.max([maxy - point.y for point in data.Coords]) \
+        if len(data.Coords)!=0 else 0
 
 
 def calc_Av_S_min(data: DesignData): 
@@ -49,11 +55,11 @@ def calc_Pcp(data: DesignData) -> float:
     return data.section.length
 
 
-def calc_Aoh(data: DesignData) -> float:
+def calc_Aoh(data: DesignData) -> float: # type: ignore
     pass
 
 
-def calc_Ph(data: DesignData) -> float:
+def calc_Ph(data: DesignData) -> float: # type: ignore
     pass
 
 
