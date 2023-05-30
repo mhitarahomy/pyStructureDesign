@@ -41,9 +41,9 @@ class ConcreteSct():
         return [rcoord.rebar.Area for rcoord in self.rebarCoords]
        
     @property
-    def d(self) -> float: #! to be removed from here
+    def d(self) -> float:
         _, _, _, maxy = self.section.bounds
-        return max(*[maxy - rcoord.point.y for rcoord in self.rebarCoords]) \
+        return max(*[maxy - point.y for point in self.Coords]) \
             if len(self.rebarCoords)!=0 else 0
 
 
