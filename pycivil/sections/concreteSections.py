@@ -58,8 +58,8 @@ class RectConcreteSct(ConcreteSct):
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Rectangle)
     lBarMat: RebarMat = field(default_factory=AIIIdef)
     cBarMat: RebarMat = field(default_factory=AIIdef)
-    rebarCoords: List[RebarCoords] = field(default_factory=list)
-    conf_rebars: List[Rebar|GRebars] = field(default_factory=list)
+    # rebarCoords: List[RebarCoords] = field(default_factory=list)
+    # conf_rebars: List[Rebar|GRebars] = field(default_factory=list)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
         super().__setattr__(__name, __value)
