@@ -1,7 +1,8 @@
 from functools import partial
-import time
+from typing import Tuple
 
 import numpy as np
+from numpy.typing import NDArray
 
 from scipy.optimize import root_scalar
 
@@ -9,18 +10,46 @@ from pycivil.ACI318_19.designProps import DesignData
 import pycivil.ACI318_19.PMManalysis as PMM
 import pycivil.ACI318_19.assumptions as assump
 
-# def setAs(data: DesignData, As: NDArray[np.float32]) -> DesignData:
-#     return DesignData(section=data.section, bw=data.bw, d=data.d, fy= data.fy, 
-#                       fyt=data.fyt, fc=data.fc, Coords=data.Coords, As=As, Es=data.Es)
+def set_As(data: DesignData, As: NDArray[np.float32]) -> DesignData:
+    """create design data with new array of rebar area
+
+    Args:
+        data (DesignData): design data
+        As (NDArray[np.float32]): array of rebar area, [mm2]
+
+    Returns:
+        DesignData: design data
+    """
+    return DesignData(section=data.section, bw=data.bw, fy= data.fy, 
+                      fyt=data.fyt, fc=data.fc, Coords=data.Coords, As=As,
+                      Es=data.Es, Av=data.Av, conf_dist=data.conf_dist, 
+                      cover=data.cover, conf_type=data.conf_type)
 
 
-# def setAsPercent(data: DesignData, percent: float) -> DesignData:
-#     totalAs = data.section.area * (percent/100)
-#     return setAs(data, np.array([totalAs/ len(data.As) for i in range(len(data.As))]))
+def get_As_percent(data: DesignData) -> np.float32:
+    """get percent of rebars area to concrete area
+
+    Args:
+        data (DesignData): design data
+
+    Returns:
+        np.float32: percent, %
+    """
+    return (np.sum(data.As)/data.section.area)*100
 
 
-# def AsPercent(data: DesignData) -> np.float32:
-#     return (np.sum(data.As)/data.section.area)*100
+def set_As_percent(data: DesignData, percent: float) -> DesignData:
+    """create new design data with percent of rebars area to concrete area
+
+    Args:
+        data (DesignData): design data
+        percent (float): percent, %
+
+    Returns:
+        DesignData: new design data
+    """
+    totalAs = data.section.area * (percent/100)
+    return set_As(data, np.array([totalAs/ len(data.As) for i in range(len(data.As))]))
 
 
 # * Only for 0, 90, 180, 270 degrees
@@ -84,3 +113,25 @@ def calc_c(data: DesignData) -> float:
     return root_scalar(_optim_c, bracket=[0.0001, c_max]).root
 
 
+def calc_Mn(data: DesignData) -> np.float32:
+    c = calc_c(data)
+    return calc_M(data, c)
+
+
+def calc_M_ratio(data: DesignData, Mux: float) -> np.float32:
+    return Mux/calc_Mn(data)
+
+
+def calc_percent(data: DesignData, Mux: float) -> np.float32:
+    def _optim_percent(x):
+        data_percent = set_As_percent(data, x)
+        return calc_Mn(data_percent) - Mux
+    data_one_percent = set_As_percent(data, 1)
+    data_eight_percent = set_As_percent(data, 8)
+    if calc_M_ratio(data_one_percent, Mux) <= 1: 
+        output_percent = 1
+    elif calc_M_ratio(data_eight_percent, Mux) > 1:
+        raise ValueError("section is weak")
+    else:
+        output_percent = root_scalar(_optim_percent, bracket=[1, 8]).root
+    return np.float32(output_percent)

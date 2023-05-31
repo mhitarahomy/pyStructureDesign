@@ -21,7 +21,7 @@ ConfRebarsdef = lambda: ConfRebars(0, [])
 @dataclass()
 class ConcreteSct():
     section: Polygon
-    sectionType: Sct.SectionType
+    section_type: Sct.SectionType
     bw: float
     concMat: ConcreteMat = field(default_factory=C25def)
     lBarMat: RebarMat = field(default_factory=AIIIdef)
@@ -58,11 +58,11 @@ class RectConcreteSct(ConcreteSct):
     h: float = field(default=600)
     bw: float = field(init=False)
     section: Polygon = field(init=False)
-    sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Rectangle)
+    section_type: Sct.SectionType = field(init=False, default=Sct.SectionType.Rectangle)
     conf_type: ConfType = field(init=False, default=ConfType.Tie)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
-        if __name=="sectionType" or __name=="conf_type":
+        if __name=="section_type" or __name=="conf_type":
             raise ValueError(f"you can't change {__name}")
         super().__setattr__(__name, __value)
         if __name=="b" or __name=="h":
@@ -77,11 +77,11 @@ class TrapzoidConcreteSct(ConcreteSct):
     bw: float|None = field(init=False)
     h: float = field(default=600)
     section: Polygon = field(init=False)
-    sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Trapezoid)
+    section_type: Sct.SectionType = field(init=False, default=Sct.SectionType.Trapezoid)
     conf_type: ConfType = field(init=False, default=ConfType.Tie)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
-        if __name=="bw" or __name=="section" or __name=="sectionType" or __name=="conf_type":
+        if __name=="section_type" or __name=="conf_type":
             raise ValueError(f"you can't change {__name}")
         super().__setattr__(__name, __value)
         if __name=="b1" or __name=="b2" or __name=="h":
@@ -99,11 +99,11 @@ class TShapeConcreteSct(ConcreteSct):
     tw1: float|None = field(default=None)
     bw: float|None = field(init=False)
     section: Polygon = field(init=False)
-    sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.TShape)
+    section_type: Sct.SectionType = field(init=False, default=Sct.SectionType.TShape)
     conf_type: ConfType = field(init=False, default=ConfType.Tie)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
-        if __name=="bw" or __name=="section" or __name=="sectionType" or __name=="conf_type":
+        if __name=="section_type" or __name=="conf_type":
             raise ValueError(f"you can't change {__name}")
         super().__setattr__(__name, __value)
         if __name=="b" or __name=="h" or __name=="tf" or \
@@ -123,11 +123,11 @@ class LShapeConcreteSct(ConcreteSct):
     tw1: float|None = field(default=None)
     bw: float|None = field(init=False)
     section: Polygon = field(init=False)
-    sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.LShape)
+    section_type: Sct.SectionType = field(init=False, default=Sct.SectionType.LShape)
     conf_type: ConfType = field(init=False, default=ConfType.Tie)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
-        if __name=="bw" or __name=="section" or __name=="sectionType" or __name=="conf_type":
+        if __name=="section_type" or __name=="conf_type":
             raise ValueError(f"you can't change {__name}")
         super().__setattr__(__name, __value)
         if __name=="b" or __name=="h" or __name=="tf" or \
@@ -144,11 +144,11 @@ class BoxConcreteSct(ConcreteSct):
     th: float = field(default=50)
     bw: float = field(init=False)
     section: Polygon = field(init=False)
-    sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Box)
+    section_type: Sct.SectionType = field(init=False, default=Sct.SectionType.Box)
     conf_type: ConfType = field(init=False, default=ConfType.Tie)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
-        if __name=="bw" or __name=="section" or __name=="sectionType" or __name=="conf_type":
+        if __name=="section_type" or __name=="conf_type":
             raise ValueError(f"you can't change {__name}")
         super().__setattr__(__name, __value)
         if __name=="b" or __name=="h" or __name=="th":
@@ -161,11 +161,11 @@ class CircConcreteSct(ConcreteSct):
     d: float = field(default=400)
     bw: float = field(init=False)
     section: Polygon = field(init=False)
-    sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Circle)
+    section_type: Sct.SectionType = field(init=False, default=Sct.SectionType.Circle)
     conf_type: ConfType = field(default=ConfType.Tie)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
-        if __name=="bw" or __name=="section" or __name=="sectionType":
+        if __name=="section_type":
             raise ValueError(f"you can't change {__name}")
         super().__setattr__(__name, __value)
         if __name=="d":
@@ -179,11 +179,11 @@ class PipeConcreteSct(ConcreteSct):
     th: float = field(default=50)
     bw: float = field(init=False)
     section: Polygon = field(init=False)
-    sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Pipe)
+    section_type: Sct.SectionType = field(init=False, default=Sct.SectionType.Pipe)
     conf_type: ConfType = field(default=ConfType.Tie)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
-        if __name=="bw" or __name=="section" or __name=="sectionType":
+        if __name=="section_type":
             raise ValueError(f"you can't change {__name}")
         super().__setattr__(__name, __value)
         if __name=="d" or __name=="th":

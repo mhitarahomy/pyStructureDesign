@@ -23,8 +23,10 @@ def set_As(data: DesignData, As: NDArray[np.float32]) -> DesignData:
     Returns:
         DesignData: design data
     """
-    return DesignData(section=data.section, bw=data.bw, d=data.d, fy= data.fy, 
-                      fyt=data.fyt, fc=data.fc, Coords=data.Coords, As=As, Es=data.Es)
+    return DesignData(section=data.section, bw=data.bw, fy= data.fy, 
+                      fyt=data.fyt, fc=data.fc, Coords=data.Coords, As=As,
+                      Es=data.Es, Av=data.Av, conf_dist=data.conf_dist, 
+                      cover=data.cover, conf_type=data.conf_type)
 
 
 def get_As_percent(data: DesignData) -> np.float32:
@@ -487,6 +489,6 @@ def calc_percent(data: DesignData, P: float, Mx: float, My: float) -> float:
     elif calc_PM_ratio(data_eight_percent, P, Mx, My, angle) > 1:
         raise ValueError("section is weak")
     else:
-        output_percent = root_scalar(_optim_percent, bracket=[1, 8])
+        output_percent = root_scalar(_optim_percent, bracket=[1, 8]).root
     return output_percent
 
