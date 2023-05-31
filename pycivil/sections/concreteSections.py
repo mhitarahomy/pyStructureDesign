@@ -6,7 +6,7 @@ from shapely import Polygon, Point
 from shapely.plotting import plot_line, plot_points, plot_polygon
 
 from pycivil.materials import ConcreteMat, RebarMat, AIII, AII, C25
-from pycivil.sections.rebarSections import GRebars, Rebar, RebarCoords, ConfType
+from pycivil.sections.rebarSections import GRebars, Rebar, RebarCoords, ConfType, ConfRebars
 import pycivil.sections.section as Sct 
 
 
@@ -15,20 +15,20 @@ ListOfPoints = List[Tuple[float, float]]
 C25def = lambda: C25
 AIIdef = lambda: AII
 AIIIdef = lambda: AIII
+ConfRebarsdef = lambda: ConfRebars(0, [])
 
 
-# ! Do not use this dataclass for create concrete sections
 @dataclass()
 class ConcreteSct():
     section: Polygon
     sectionType: Sct.SectionType
     bw: float
-    concMat: ConcreteMat
-    lBarMat: RebarMat 
-    cBarMat: RebarMat
-    cover: float
+    concMat: ConcreteMat = field(default_factory=C25def)
+    lBarMat: RebarMat = field(default_factory=AIIIdef)
+    cBarMat: RebarMat = field(default_factory=AIIdef)
+    cover: float = field(default=70)
     rebarCoords: List[RebarCoords] = field(default_factory=list)
-    conf_rebars: List[Rebar|GRebars] = field(default_factory=list)
+    conf_rebars: ConfRebars = field(default_factory=ConfRebarsdef)
     conf_type: ConfType = field(default=ConfType.Tie)
     
     @property
@@ -45,7 +45,11 @@ class ConcreteSct():
     
     @property
     def Av(self) -> List[float]:
-        return [rebar.Area for rebar in self.conf_rebars]
+        return [rebar.Area for rebar in self.conf_rebars.rebars]
+    
+    @property
+    def conf_dist(self) -> float:
+        return self.conf_rebars.deistance
 
 
 @dataclass()
@@ -53,15 +57,13 @@ class RectConcreteSct(ConcreteSct):
     b: float = field(default=400)
     h: float = field(default=600)
     bw: float = field(init=False)
-    concMat: ConcreteMat = field(default_factory=C25def)
     section: Polygon = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Rectangle)
-    lBarMat: RebarMat = field(default_factory=AIIIdef)
-    cBarMat: RebarMat = field(default_factory=AIIdef)
-    # rebarCoords: List[RebarCoords] = field(default_factory=list)
-    # conf_rebars: List[Rebar|GRebars] = field(default_factory=list)
+    conf_type: ConfType = field(init=False, default=ConfType.Tie)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
+        if __name=="sectionType" or __name=="conf_type":
+            raise ValueError(f"you can't change {__name}")
         super().__setattr__(__name, __value)
         if __name=="b" or __name=="h":
             self.section =  Sct.RectangleSct(self.b, self.h)
@@ -74,14 +76,13 @@ class TrapzoidConcreteSct(ConcreteSct):
     b2: float = field(default=300)
     bw: float|None = field(init=False)
     h: float = field(default=600)
-    concMat: ConcreteMat = field(default_factory=C25def)
     section: Polygon = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Trapezoid)
-    lBarMat: RebarMat = field(default_factory=AIIIdef)
-    cBarMat: RebarMat = field(default_factory=AIIdef)
-    rebarCoords: List[RebarCoords] = field(default_factory=list)
+    conf_type: ConfType = field(init=False, default=ConfType.Tie)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
+        if __name=="bw" or __name=="section" or __name=="sectionType" or __name=="conf_type":
+            raise ValueError(f"you can't change {__name}")
         super().__setattr__(__name, __value)
         if __name=="b1" or __name=="b2" or __name=="h":
             self.section =  Sct.TrapzoidSct(self.b1, self.b2, self.h)
@@ -97,14 +98,13 @@ class TShapeConcreteSct(ConcreteSct):
     tf1: float|None = field(default=None)
     tw1: float|None = field(default=None)
     bw: float|None = field(init=False)
-    concMat: ConcreteMat = field(default_factory=C25def)
     section: Polygon = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.TShape)
-    lBarMat: RebarMat = field(default_factory=AIIIdef)
-    cBarMat: RebarMat = field(default_factory=AIIdef)
-    rebarCoords: List[RebarCoords] = field(default_factory=list)
+    conf_type: ConfType = field(init=False, default=ConfType.Tie)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
+        if __name=="bw" or __name=="section" or __name=="sectionType" or __name=="conf_type":
+            raise ValueError(f"you can't change {__name}")
         super().__setattr__(__name, __value)
         if __name=="b" or __name=="h" or __name=="tf" or \
             __name=="tw" or __name=="tf1" or __name=="tw1":
@@ -112,7 +112,7 @@ class TShapeConcreteSct(ConcreteSct):
                                           self.tf1, self.tw1)
             self.bw = self.tw if self.tw1==None else (self.tw + self.tw1) / 2
         
-
+        
 @dataclass()
 class LShapeConcreteSct(ConcreteSct):
     b: float = field(default=400)
@@ -122,14 +122,13 @@ class LShapeConcreteSct(ConcreteSct):
     tf1: float|None = field(default=None)
     tw1: float|None = field(default=None)
     bw: float|None = field(init=False)
-    concMat: ConcreteMat = field(default_factory=C25def)
     section: Polygon = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.LShape)
-    lBarMat: RebarMat = field(default_factory=AIIIdef)
-    cBarMat: RebarMat = field(default_factory=AIIdef)
-    rebarCoords: List[RebarCoords] = field(default_factory=list)
+    conf_type: ConfType = field(init=False, default=ConfType.Tie)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
+        if __name=="bw" or __name=="section" or __name=="sectionType" or __name=="conf_type":
+            raise ValueError(f"you can't change {__name}")
         super().__setattr__(__name, __value)
         if __name=="b" or __name=="h" or __name=="tf" or \
             __name=="tw" or __name=="tf1" or __name=="tw1":
@@ -144,14 +143,13 @@ class BoxConcreteSct(ConcreteSct):
     h: float = field(default=600)
     th: float = field(default=50)
     bw: float = field(init=False)
-    concMat: ConcreteMat = field(default_factory=C25def)
     section: Polygon = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Box)
-    lBarMat: RebarMat = field(default_factory=AIIIdef)
-    cBarMat: RebarMat = field(default_factory=AIIdef)
-    rebarCoords: List[RebarCoords] = field(default_factory=list)
+    conf_type: ConfType = field(init=False, default=ConfType.Tie)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
+        if __name=="bw" or __name=="section" or __name=="sectionType" or __name=="conf_type":
+            raise ValueError(f"you can't change {__name}")
         super().__setattr__(__name, __value)
         if __name=="b" or __name=="h" or __name=="th":
             self.section =  Sct.BoxSct(self.b, self.h, self.th)
@@ -162,14 +160,13 @@ class BoxConcreteSct(ConcreteSct):
 class CircConcreteSct(ConcreteSct):
     d: float = field(default=400)
     bw: float = field(init=False)
-    concMat: ConcreteMat = field(default_factory=C25def)
     section: Polygon = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Circle)
-    lBarMat: RebarMat = field(default_factory=AIIIdef)
-    cBarMat: RebarMat = field(default_factory=AIIdef)
-    rebarCoords: List[RebarCoords] = field(default_factory=list)
+    conf_type: ConfType = field(default=ConfType.Tie)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
+        if __name=="bw" or __name=="section" or __name=="sectionType":
+            raise ValueError(f"you can't change {__name}")
         super().__setattr__(__name, __value)
         if __name=="d":
             self.section =  Sct.CircleSct(self.d)
@@ -181,14 +178,13 @@ class PipeConcreteSct(ConcreteSct):
     d: float = field(default=400)
     th: float = field(default=50)
     bw: float = field(init=False)
-    concMat: ConcreteMat = field(default_factory=C25def)
     section: Polygon = field(init=False)
     sectionType: Sct.SectionType = field(init=False, default=Sct.SectionType.Pipe)
-    lBarMat: RebarMat = field(default_factory=AIIIdef)
-    cBarMat: RebarMat = field(default_factory=AIIdef)
-    rebarCoords: List[RebarCoords] = field(default_factory=list)
+    conf_type: ConfType = field(default=ConfType.Tie)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
+        if __name=="bw" or __name=="section" or __name=="sectionType":
+            raise ValueError(f"you can't change {__name}")
         super().__setattr__(__name, __value)
         if __name=="d" or __name=="th":
             self.section =  Sct.PipeSct(self.d, self.th)

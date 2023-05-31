@@ -17,6 +17,7 @@ class DesignData():
     Coords: NDArray[Point]
     As: NDArray[np.float32]
     Av: NDArray[np.float32]
+    conf_dist: np.float32
     Es: np.float32
     cover: np.float32
     conf_type: ConfType
@@ -32,4 +33,4 @@ def setDesignDataFromSection(sct: ConcreteSct) -> DesignData:
         fyt=np.float32(sct.cBarMat.fy),fc=np.float32(sct.concMat.fc), 
         Coords=np.array(sct.Coords, dtype=np.float32), As=np.array(sct.As, dtype=np.float32), 
         Es=np.float32(sct.lBarMat.Es), cover=np.float32(sct.cover), Av=np.array(sct.Av, dtype=np.float32),
-        conf_type=sct.conf_type)
+        conf_type=sct.conf_type, conf_dist=np.float32(sct.conf_dist))

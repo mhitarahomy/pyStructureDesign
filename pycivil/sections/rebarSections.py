@@ -73,15 +73,7 @@ d36 = Rebar(36)
 class ConfType(StrEnum):
     Tie = auto()
     Spiral = auto()
-
-
-# @dataclass
-# class Cover():
-#     Top: float
-#     Bottom: float
-#     Right: float
-#     Left: float
-    
+  
 
 @dataclass
 class RebarCoords():
@@ -89,7 +81,14 @@ class RebarCoords():
     rebar: Rebar|GRebars
 
 
+@dataclass
+class ConfRebars():
+    deistance: float
+    rebars: List[Rebar|GRebars]
+
+
 CalcArea: Callable[[float, int], float] = lambda d, num=1: num * (pi*d**2)/4
+
 
 def CalcRebarsArea(**listOfRebars) -> float:
     """Calculate area of group rebars
@@ -181,8 +180,10 @@ def CreateLineWithCover(line: LineString, startCover: float, endCover: float) ->
     points.insert(0, (startPoint.x, startPoint.y))
     return LineString(points)
 
+
 def PointRebar(rebar: Rebar|GRebars, point: Point) -> RebarCoords:
     return RebarCoords(point=point, rebar=rebar)
+
 
 def LinearRebars(barShape: List[Rebar|GRebars], cover: Tuple[float, float], 
                  line: LineString, *, offsetDist: float=0, 
