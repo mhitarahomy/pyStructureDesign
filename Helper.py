@@ -3,9 +3,8 @@ import numpy as np
 from pycivil.sections.concreteSections import showSection, RectConcreteSct
 import pycivil.sections.rebarSections as Rsct
 import pycivil.sections.section as Sct
-import pycivil.ACI318_19.PMManalysis as PMManalysis
-import pycivil.ACI318_19.Manalysis as Manalysis
-import pycivil.ACI318_19.LRFD as LRFD
+import pycivil.ACI318_19.sectional_strength.PMManalysis as PMManalysis
+import pycivil.ACI318_19.sectional_strength.Manalysis as Manalysis
 import pycivil.ACI318_19.designProps as props
 from shapely.plotting import plot_polygon, plot_line, plot_points
 
@@ -14,7 +13,11 @@ d20 = Rsct.d20
 
 sct = RectConcreteSct(b=500, h=700)
 sct.rebarCoords = Rsct.RectRebarsSct(sct.section, 5, 4, d20, 50)
-showSection(sct)
+data = props.DesignData.fromSection(sct)
+# PMManalysis.show_PM_chart(data, 3e6, 2e8, 1e8)
+# PMManalysis.show_MM_chart(data, 3e6, 2e8, 1e8)
+# PMManalysis.show_PM_percent_chart(data, 3e6, 2e8, 1e8)
+print(PMManalysis.show_PMM_design_result(sct, 3e6, 2e8, 1e8))
 
 
 

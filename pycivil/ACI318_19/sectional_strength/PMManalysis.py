@@ -1,4 +1,5 @@
 from typing import Tuple
+from matplotlib import pyplot as plt
 
 from numpy.typing import NDArray
 import numpy as np
@@ -9,8 +10,9 @@ from shapely.ops import polygonize
 
 from scipy.optimize import root_scalar
 
-from pycivil.ACI318_19.designProps import DesignData
+from pycivil.ACI318_19.designProps import DesignData, PMMresults
 import pycivil.ACI318_19.assumptions as assump
+from pycivil.sections.concreteSections import ConcreteSct
 
 
 def set_As(data: DesignData, As: NDArray[np.float32]) -> DesignData:
@@ -453,7 +455,7 @@ def calc_Mn(data: DesignData, P: float, angle: float) -> Tuple[np.float32, np.fl
     return calc_M(data, c, angle)
 
 
-def calc_PM_max(data: DesignData, angle: float) -> np.float32:
+def calc_M_max(data: DesignData, angle: float) -> np.float32:
     _, M_list = calc_PM_list(data, angle, num=50)
     return np.max(M_list[:,0])
 
@@ -475,6 +477,25 @@ def calc_PM_ratio(data: DesignData, P: float, Mx: float, My: float, angle:float|
     return P/_P if P!=0 else M/_M
 
 
+def show_PMM_analysis_result(section: ConcreteSct, P: float, Mx: float, My: float):
+    data = DesignData.fromSection(section)
+    P0 = calc_phi_P0(data)
+    Pn_max = calc_phi_Pn_max(data)
+    Pnt_max = calc_phi_Pnt_max(data)
+    _ratio = calc_PM_ratio(data, P, Mx, My)
+    _M = pow(Mx**2 + My**2, 0.5)
+    _angle = float(calc_angle(data, P, Mx, My))
+    M_max = calc_M_max(data, _angle)
+    _alpha = calc_alpha(Mx, My)
+    _c = float(calc_c(data, P, _angle)) # type: ignore
+    _es = calc_es(data.section, data.Coords, _c, _angle)
+    _fs = calc_fs(data, _c, _angle)
+    _Fs = calc_Fs(data, _c, _angle)
+    _Cc = calc_Cc(data, _c, _angle)
+    _percent = get_As_percent(data)
+    return PMMresults(P0, Pn_max, Pnt_max, M_max, _c, _angle, _alpha, _es, _fs, _Fs, _Cc, P, _M, Mx, My, _percent, "", _ratio) # type: ignore
+
+
 def calc_percent(data: DesignData, P: float, Mx: float, My: float) -> float:
     angle = calc_angle(data, P, Mx, My)
     def _optim_percent(x):
@@ -491,4 +512,74 @@ def calc_percent(data: DesignData, P: float, Mx: float, My: float) -> float:
     else:
         output_percent = root_scalar(_optim_percent, bracket=[1, 8]).root
     return output_percent
+
+
+def show_PMM_design_result(section: ConcreteSct, P: float, Mx: float, My: float):
+    data = DesignData.fromSection(section)
+    _percent = calc_percent(data, P, Mx, My)
+    data = set_As_percent(data, _percent) # type: ignore
+    angle = float(calc_angle(data,  P, Mx, My))
+    P0 = calc_phi_P0(data)
+    Pn_max = calc_phi_Pn_max(data)
+    Pnt_max = calc_phi_Pnt_max(data)
+    M_max = calc_M_max(data, angle)
+    c = float(calc_c(data, P, angle))
+    _M, _Mx, _My = calc_M(data, c, angle)
+    alpha = calc_alpha(_Mx, _My) # type: ignore
+    _es = calc_es(data.section, data.Coords, c, angle)
+    _fs = calc_fs(data, c, angle)
+    _Fs = calc_Fs(data, c, angle)
+    _Cc = calc_Cc(data, c, angle)
+    return PMMresults(P0, Pn_max, Pnt_max, M_max, c, angle, alpha, _es, _fs, _Fs, _Cc, P, _M, Mx, My, _percent, "", 0) # type: ignore
+
+
+def show_PM_chart(data: DesignData, P: float, Mx: float, My: float, num:int=100) -> None:
+    M = pow(Mx**2 + My**2, 0.5)
+    angle = calc_angle(data, P, Mx, My)
+    P_phi_list, M_phi_list = calc_PM_list(data, angle, num, is_phi=True)
+    P_list, M_list = calc_PM_list(data, angle, num, is_phi=False)
+    fig, axs = plt.subplots(figsize=(5,7))
+    axs.plot(M_list[:,0], P_list)
+    axs.plot(M_phi_list[:,0], P_phi_list)
+    axs.set_aspect(100)
+    axs.scatter(M, P, marker=".") # type: ignore
+    axs.set_title(f"P-M chart")
+    axs.set_ylabel("P(N)")
+    axs.set_xlabel("M(N.mm)")
+    axs.axhline(y=0, color='k', linestyle='-')
+    axs.axvline(x=0, color='k', linestyle='-')
+    axs.grid(True)
+    plt.show()
+
+
+def show_MM_chart(data:DesignData, P: float, Mx: float, My: float, num:int=40):
+    angle_list = np.linspace(0, 360, num)
+    Mxy_list = np.array([calc_Mn(data, P, _angle) for _angle in angle_list])
+    fig, axs = plt.subplots()
+    axs.plot(Mxy_list[:, 1], Mxy_list[:, 2])
+    axs.scatter(Mx, My)
+    axs.axhline(y=0, color='k', linestyle='-')
+    axs.axvline(x=0, color='k', linestyle='-')
+    axs.set_xlabel("Mx")
+    axs.set_ylabel("My")
+    axs.grid(True)
+    plt.show()
+
+
+def show_PM_percent_chart(data:DesignData, P: float, Mx: float, My: float, num:int=8):
+    M = pow(Mx**2 + My**2, 0.5)
+    angle = calc_angle(data, P, Mx, My)
+    percent_list = np.linspace(1, 8, num=num)
+    data_list = np.array([set_As_percent(data, percent) for percent in percent_list])
+
+    fig, axs = plt.subplots()
+    for _data in data_list:
+        P_list, M_list = calc_PM_list(_data, angle, 60)
+        axs.plot(M_list[:,0], P_list)
+    axs.set_aspect(100)
+    axs.scatter(M, P, marker=".") # type: ignore
+    axs.axhline(y=0, color='k', linestyle='-')
+    axs.axvline(x=0, color='k', linestyle='-')
+    axs.grid(True)
+    plt.show()
 

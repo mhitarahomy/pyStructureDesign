@@ -7,7 +7,7 @@ from numpy.typing import NDArray
 from scipy.optimize import root_scalar
 
 from pycivil.ACI318_19.designProps import DesignData
-import pycivil.ACI318_19.PMManalysis as PMM
+import pycivil.ACI318_19.sectional_strength.PMManalysis as PMM
 import pycivil.ACI318_19.assumptions as assump
 
 def set_As(data: DesignData, As: NDArray[np.float32]) -> DesignData:
