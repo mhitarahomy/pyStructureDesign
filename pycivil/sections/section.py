@@ -1,18 +1,16 @@
 from enum import StrEnum, auto
-from typing import List, Tuple
 from math import sin, cos, pi
 
 from shapely import Point, LineString, Polygon
 from shapely.affinity import translate, rotate
 
 
-# ListOfPoints = List[Tuple[float, float]]
-
 class SectionType(StrEnum):
     Triangle = auto()
     Rectangle = auto()
     Trapezoid = auto()
     TShape = auto()
+    IShape = auto()
     LShape = auto()
     Box = auto()
     Pipe = auto()
@@ -82,14 +80,14 @@ def CreateEllipseSct(a: float, b: float) -> Polygon:
 
 def DistanceFrom(section: Polygon, dist: float, position: str="top") -> LineString:
     minx, miny, maxx, maxy = section.bounds
-    if (position == "top" or position=="bottom") and (dist > maxy-miny): 
+    if (position == "top" or position=="bottom") and (dist > maxy-miny):  # type: ignore
         raise ValueError("distance is greater than height of shape.")
-    if (position == "right" or position=="left") and (dist > maxx-minx): 
+    if (position == "right" or position=="left") and (dist > maxx-minx):  # type: ignore
         raise ValueError("distance is greater than width of shape.")
-    line = LineString([(maxx+10, maxy-dist), (minx-10, maxy-dist)]) if position=="top" else\
-            LineString([(maxx+10, miny+dist), (minx-10, miny+dist)]) if position=="bottom" else\
-            LineString([(maxx-dist, maxy+10), (maxx-dist, miny-10)]) if position=="right" else\
-            LineString([(minx+dist, maxy+10), (minx+dist, miny-10)]) if position=="left" else None
+    line = LineString([(maxx+10, maxy-dist), (minx-10, maxy-dist)]) if position=="top" else\ # type: ignore
+            LineString([(maxx+10, miny+dist), (minx-10, miny+dist)]) if position=="bottom" else\ # type: ignore
+            LineString([(maxx-dist, maxy+10), (maxx-dist, miny-10)]) if position=="right" else\ # type: ignore
+            LineString([(minx+dist, maxy+10), (minx+dist, miny-10)]) if position=="left" else None # type: ignore
     return section.intersection(line)
 
 
