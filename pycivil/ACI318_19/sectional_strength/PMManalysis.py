@@ -11,10 +11,23 @@ from shapely.ops import polygonize
 from scipy.optimize import root_scalar
 
 from pycivil.ACI318_19.designProps import DesignData, PMMresults
-from pycivil.errors import RebarCoordsError, OptimizationError
+from pycivil.errors import OptimizationError
 import pycivil.ACI318_19.assumptions as assump
-from pycivil.sections.concreteSections import ConcreteSct
+from pycivil.sections.concreteSections import ConcreteSct, check_As, check_rebar_coords, check_section
 from pycivil.sections.rebarSections import ConfType
+
+
+MIN_C = np.float(1e-6)
+MIN_ANGLE = np.float32(0)
+MAX_ANGLE = np.float32(360)
+
+
+def correct_c(c: np.float32) -> np.float32:
+    return max(c, MIN_C)
+
+
+def check_angle(angle: np.float32) -> np.float32:
+    if not 0<= angle <=360: raise ValueError("angle must between 0 to 360 degrees")
 
 
 def set_As(data: DesignData, As: NDArray[np.float32]) -> DesignData:
@@ -27,8 +40,7 @@ def set_As(data: DesignData, As: NDArray[np.float32]) -> DesignData:
     Returns:
         DesignData: design data
     """
-    if len(data.As) == 0: raise RebarCoordsError(
-        "list of rebars area is empty. you must add rebar to section.")
+    check_As(data.As)
     if len(data.As) != len(As): raise ValueError("length of As must be same as design data As.")
     return DesignData(section=data.section, bw=data.bw, fy= data.fy, 
                       fyt=data.fyt, fc=data.fc, Coords=data.Coords, As=As,
@@ -45,8 +57,7 @@ def get_As_percent(data: DesignData) -> np.float32:
     Returns:
         np.float32: percent, %
     """
-    if len(data.As) == 0: raise RebarCoordsError(
-        "list of rebars area is empty. you must add rebar to section.")
+    check_As(data.As)
     return (np.sum(data.As)/data.section.area)*100
 
 
@@ -60,8 +71,7 @@ def set_As_percent(data: DesignData, percent: float) -> DesignData:
     Returns:
         DesignData: new design data
     """
-    if len(data.As) == 0: raise RebarCoordsError(
-        "list of rebars area is empty. you must add rebar to section.")
+    check_As(data.As)
     totalAs = data.section.area * (percent/100)
     return set_As(data, np.array([totalAs/ len(data.As) for i in range(len(data.As))]))
 
@@ -76,8 +86,7 @@ def calc_P0(data: DesignData) -> np.float32:
     Returns:
         np.float32: nominal axial strength at zero eccentricity, N 
     """
-    if len(data.As) == 0: raise RebarCoordsError(
-        "list of rebars area is empty. you must add rebar to section.")
+    check_As(data.As)
     return (0.85 * data.fc * (data.section.area - sum(data.As)))\
                    + (sum(data.As)*data.fy)
 
@@ -93,8 +102,6 @@ def calc_phi_P0(data: DesignData) -> np.float32:
         np.float32: nominal axial strength at zero eccentricity 
         considering to strength reduction factor, N
     """
-    if len(data.As) == 0: raise RebarCoordsError(
-        "list of rebars area is empty. you must add rebar to section.")
     return assump.PHI_MOMENT_AXIAL_MIN * calc_P0(data)
 
 
@@ -108,8 +115,6 @@ def calc_Pn_max(data: DesignData) -> np.float32:
     Returns:
         np.float32: maximum nominal axial compressive strength of a member, N
     """
-    if len(data.As) == 0: raise RebarCoordsError(
-        "list of rebars area is empty. you must add rebar to section.")
     P0 = calc_P0(data)
     return 0.8 * P0 if data.conf_type==ConfType.Tie else 0.85 * P0
 
@@ -125,8 +130,6 @@ def calc_phi_Pn_max(data: DesignData) -> np.float32:
         np.float32: maximum nominal axial compressive strength of a member 
         considering to strength reduction factor, N
     """
-    if len(data.As) == 0: raise RebarCoordsError(
-        "list of rebars area is empty. you must add rebar to section.")
     phi_P0 = assump.PHI_MOMENT_AXIAL_MIN * calc_P0(data)
     return 0.8 * phi_P0 if data.conf_type==ConfType.Tie else 0.85 * phi_P0
 
@@ -141,8 +144,7 @@ def calc_Pnt_max(data: DesignData) -> np.float32:
     Returns:
         np.float32: maximum nominal axial compressive strength of a member, N
     """
-    if len(data.As) == 0: raise RebarCoordsError(
-        "list of rebars area is empty. you must add rebar to section.")
+    check_As(data.As)
     return - sum(data.As) * data.fy
 
 
@@ -157,8 +159,6 @@ def calc_phi_Pnt_max(data: DesignData) -> np.float32:
         np.float32: maximum nominal axial compressive strength of a member 
         considering to strength reduction factor, N
     """
-    if len(data.As) == 0: raise RebarCoordsError(
-        "list of rebars area is empty. you must add rebar to section.")
     return -assump.PHI_MOMENT_AXIAL_MAX * calc_Pnt_max(data)
 
 
@@ -200,7 +200,9 @@ def calc_angle(data: DesignData, P: float, Mx: float, My: float) -> float:
          180 if 180<alpha<=270 else 270
     ubound = 90 if 0<=alpha<=90 else 180 if 90<alpha<=180 else\
          270 if 180<alpha<=270 else 360
-    return root_scalar(_optim_angle, bracket=[lbound, ubound]).root
+    output = root_scalar(_optim_angle, bracket=[lbound, ubound])
+    if not output.converged: raise OptimizationError("angle can not find from optimization.")
+    return output.root
 
 
 def rotate_section(section: Polygon, angle: float) -> Polygon:
@@ -213,6 +215,8 @@ def rotate_section(section: Polygon, angle: float) -> Polygon:
     Returns:
         Polygon: rotated cross section
     """
+    check_section(section)
+    check_angle(angle)
     return  rotate(section, angle, origin=Point([0, 0])) if angle!=0 else section
 
 
@@ -226,6 +230,8 @@ def rotate_rebar_coords(coords: NDArray[Point], angle: float) -> NDArray[Point]:
     Returns:
         NDArray[Point]: list of rotated point coordinates
     """
+    check_rebar_coords(coords)
+    check_angle(angle)
     return np.array([rotate(coord, angle, origin=Point([0, 0])) \
                            for coord in coords]) if angle !=0 else coords
 
@@ -241,10 +247,10 @@ def calc_neutral_axis(section: Polygon, c: float, angle: float) -> LineString:
     Returns:
         LineString: netural line
     """
-    c = c if c>=0.0001 else 0.0001
+    c = correct_c(c)
     rot_section = rotate_section(section, angle)
     minx, _, maxx, maxy = rot_section.bounds
-    return LineString([(maxx+10, maxy-c), (minx-10, maxy-c)]) # type: ignore
+    return LineString([(maxx+10, maxy-c), (minx-10, maxy-c)])
 
 
 def calc_neutral_region(section: Polygon, c: float, angle: float) -> Polygon:
@@ -258,11 +264,11 @@ def calc_neutral_region(section: Polygon, c: float, angle: float) -> Polygon:
     Returns:
         Polygon: neutral region shape
     """
-    c = c if c>=0.0001 else 0.0001
+    c = correct_c(c)
     rot_section = rotate_section(section, angle)
     minx, _, maxx, maxy = rot_section.bounds
-    topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-c), # type: ignore
-                      (minx-10, maxy-c), (minx-10, maxy)]) # type: ignore
+    topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-c), 
+                      (minx-10, maxy-c), (minx-10, maxy)]) 
     neutral_line = calc_neutral_axis(section, c, angle)
     unioned = rot_section.boundary.union(neutral_line)
     neutral_region = [poly for poly in polygonize(unioned) if \
@@ -281,7 +287,7 @@ def calc_max_pressure_point(section: Polygon, c: float, angle: float) -> np.floa
     Returns:
         np.float32: maximum distance of pressure point
     """
-    c = c if c>=0.0001 else 0.0001
+    c = correct_c(c)
     neutral_line = calc_neutral_axis(section, c, angle)
     neutral_region = calc_neutral_region(section, c, angle)
     return np.max([neutral_line.distance(Point(p)) for p in list(neutral_region.exterior.coords)])
@@ -299,7 +305,7 @@ def calc_pressure_axis(section: Polygon, fc: np.float32, c: float, angle: float)
     Returns:
         LineString: pressure line
     """
-    c = c if c>=0.0001 else 0.0001
+    c = correct_c(c)
     max_pressure_point = calc_max_pressure_point(section, c, angle)
     neutral_line = calc_neutral_axis(section, c, angle)
     return neutral_line.parallel_offset(distance=max_pressure_point*
@@ -318,11 +324,11 @@ def calc_pressure_region(section: Polygon, fc: np.float32, c: float, angle: floa
     Returns:
         Polygon: pressure region
     """
-    c = c if c>=0.0001 else 0.0001
+    c = correct_c(c)
     rot_section = rotate_section(section, angle) if angle!=0 else section
     minx, _, maxx, maxy = rot_section.bounds
-    top_area = Polygon([(maxx+10, maxy), (maxx+10, maxy-(0.85*c)), # type: ignore
-                      (minx-10, maxy-(0.85*c)), (minx-10, maxy)]) # type: ignore
+    top_area = Polygon([(maxx+10, maxy), (maxx+10, maxy-(0.85*c)), 
+                      (minx-10, maxy-(0.85*c)), (minx-10, maxy)]) 
     pressure_line = calc_pressure_axis(section, fc, c, angle)
     unioned = rot_section.boundary.union(pressure_line)
     pressure_region = [poly for poly in polygonize(unioned) if \
@@ -431,7 +437,6 @@ def calc_M(data: DesignData, c: float, angle: float, IsPhi: bool = True) \
 
 
 def calc_P(data: DesignData, c: float, angle: float, IsPhi: bool = True) -> np.float32:
-    # c = c if c>=0.0001 else 0.0001
     Fs = calc_Fs(data, c, angle)
     Cc = calc_Cc(data, c, angle) 
     es = calc_es(data.section, data.Coords, c, angle)

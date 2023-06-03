@@ -4,6 +4,7 @@ from matplotlib import pyplot as plt
 
 from shapely import Polygon, Point
 from shapely.plotting import plot_points, plot_polygon
+from pycivil.errors import RebarCoordsError, SectionError
 
 from pycivil.materials import ConcreteMat, RebarMat, AIII, AII, C25
 from pycivil.sections.rebarSections import GRebars, Rebar, RebarCoords, ConfType, ConfRebars
@@ -202,3 +203,17 @@ def showSection(concSct: ConcreteSct) -> None:
             ax.annotate(f"{rcoord.rebar}\n{i}", xy=(rcoord.point.x, rcoord.point.y), xycoords='data',
                     xytext=(1.5, -10), textcoords='offset points')
     plt.show()
+    
+    
+def check_As(As) -> None:
+    if len(As) == 0: raise RebarCoordsError(
+        "list of rebars area is empty. you must add rebar to section.")
+    
+    
+def check_rebar_coords(coords) -> None:
+    if len(coords) == 0: raise RebarCoordsError(
+        "list of rebars coordination is empty. you must add rebar to section.")
+
+
+def check_section(section) -> None:
+    if len(list(section.exterior.coords)) < 4: raise SectionError("section must have greater than 3 edge")
