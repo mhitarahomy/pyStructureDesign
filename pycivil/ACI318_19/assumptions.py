@@ -14,10 +14,10 @@ def ETY(fy: np.float32, Es: np.float32) -> np.float32:
 
 
 def BETA1(fc: np.float32) -> np.float32:
-    return np.float32(0.85 if fc<=28 else max(0.85-(0.05*(fc-28)/7), 0.65))
+    return np.float32(0.85 if fc<=28 else max(float(0.85-(0.05*(fc-28)/7)), 0.65))
     
 
-def PHI_MOMENRT_AXIAL(fy: np.float32, Es: np.float32, esMin: np.float32) -> np.float32:
+def PHI_MOMENT_AXIAL(fy: np.float32, Es: np.float32, esMin: np.float32) -> np.float32:
     ety = fy / Es
     et = abs(esMin)
     return np.float32(PHI_MOMENT_AXIAL_MIN if et <= ety else PHI_MOMENT_AXIAL_MIN+0.25*((et-ety)/0.003)\

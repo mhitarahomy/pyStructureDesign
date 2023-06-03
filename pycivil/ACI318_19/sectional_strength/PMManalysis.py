@@ -17,16 +17,16 @@ from pycivil.sections.concreteSections import ConcreteSct, check_As, check_rebar
 from pycivil.sections.rebarSections import ConfType
 
 
-MIN_C = np.float(1e-6)
+MIN_C = np.float32(1e-6)
 MIN_ANGLE = np.float32(0)
 MAX_ANGLE = np.float32(360)
 
 
 def correct_c(c: np.float32) -> np.float32:
-    return max(c, MIN_C)
+    return np.max([c, MIN_C])
 
 
-def check_angle(angle: np.float32) -> np.float32:
+def check_angle(angle: np.float32) -> None:
     if not 0<= angle <=360: raise ValueError("angle must between 0 to 360 degrees")
 
 
@@ -162,7 +162,7 @@ def calc_phi_Pnt_max(data: DesignData) -> np.float32:
     return -assump.PHI_MOMENT_AXIAL_MAX * calc_Pnt_max(data)
 
 
-def calc_alpha(Mx: float, My: float) -> np.float32:
+def calc_alpha(Mx: np.float32, My: np.float32) -> np.float32:
     """angle between Mx & My on M-M chart
 
     Args:
@@ -178,7 +178,7 @@ def calc_alpha(Mx: float, My: float) -> np.float32:
     return np.float32(alpha)
 
 
-def calc_angle(data: DesignData, P: float, Mx: float, My: float) -> float:
+def calc_angle(data: DesignData, P: np.float32, Mx: np.float32, My: np.float32) -> np.float32:
     """calculate angle of rotation for section on PMM force
 
     Args:
@@ -205,7 +205,7 @@ def calc_angle(data: DesignData, P: float, Mx: float, My: float) -> float:
     return output.root
 
 
-def rotate_section(section: Polygon, angle: float) -> Polygon:
+def rotate_section(section: Polygon, angle: np.float32) -> Polygon:
     """rotate cross section
 
     Args:
@@ -220,7 +220,7 @@ def rotate_section(section: Polygon, angle: float) -> Polygon:
     return  rotate(section, angle, origin=Point([0, 0])) if angle!=0 else section
 
 
-def rotate_rebar_coords(coords: NDArray[Point], angle: float) -> NDArray[Point]:
+def rotate_rebar_coords(coords: NDArray[Point], angle: np.float32) -> NDArray[Point]:
     """rotate rebar point coordinates
 
     Args:
@@ -236,7 +236,7 @@ def rotate_rebar_coords(coords: NDArray[Point], angle: float) -> NDArray[Point]:
                            for coord in coords]) if angle !=0 else coords
 
 
-def calc_neutral_axis(section: Polygon, c: float, angle: float) -> LineString:
+def calc_neutral_axis(section: Polygon, c: np.float32, angle: np.float32) -> LineString:
     """calculate neutral axis for section that rotated
 
     Args:
@@ -250,10 +250,10 @@ def calc_neutral_axis(section: Polygon, c: float, angle: float) -> LineString:
     c = correct_c(c)
     rot_section = rotate_section(section, angle)
     minx, _, maxx, maxy = rot_section.bounds
-    return LineString([(maxx+10, maxy-c), (minx-10, maxy-c)])
+    return LineString([(maxx+10, maxy-c), (minx-10, maxy-c)]) # type: ignore
 
 
-def calc_neutral_region(section: Polygon, c: float, angle: float) -> Polygon:
+def calc_neutral_region(section: Polygon, c: np.float32, angle: np.float32) -> Polygon:
     """calculate neutral region for section that rotated
 
     Args:
@@ -267,8 +267,8 @@ def calc_neutral_region(section: Polygon, c: float, angle: float) -> Polygon:
     c = correct_c(c)
     rot_section = rotate_section(section, angle)
     minx, _, maxx, maxy = rot_section.bounds
-    topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-c), 
-                      (minx-10, maxy-c), (minx-10, maxy)]) 
+    topArea = Polygon([(maxx+10, maxy), (maxx+10, maxy-c),  # type: ignore
+                      (minx-10, maxy-c), (minx-10, maxy)])  # type: ignore
     neutral_line = calc_neutral_axis(section, c, angle)
     unioned = rot_section.boundary.union(neutral_line)
     neutral_region = [poly for poly in polygonize(unioned) if \
@@ -276,7 +276,7 @@ def calc_neutral_region(section: Polygon, c: float, angle: float) -> Polygon:
     return neutral_region[0]
 
 
-def calc_max_pressure_point(section: Polygon, c: float, angle: float) -> np.float32:
+def calc_max_pressure_point(section: Polygon, c: np.float32, angle: np.float32) -> np.float32:
     """calculate maximum distance of neutral region for rotated section
 
     Args:
@@ -293,7 +293,7 @@ def calc_max_pressure_point(section: Polygon, c: float, angle: float) -> np.floa
     return np.max([neutral_line.distance(Point(p)) for p in list(neutral_region.exterior.coords)])
 
 
-def calc_pressure_axis(section: Polygon, fc: np.float32, c: float, angle: float) -> LineString:
+def calc_pressure_axis(section: Polygon, fc: np.float32, c: np.float32, angle: np.float32) -> LineString:
     """calculate pressure line based on ACI code
 
     Args:
@@ -309,10 +309,10 @@ def calc_pressure_axis(section: Polygon, fc: np.float32, c: float, angle: float)
     max_pressure_point = calc_max_pressure_point(section, c, angle)
     neutral_line = calc_neutral_axis(section, c, angle)
     return neutral_line.parallel_offset(distance=max_pressure_point*
-                                        (1-assump.beta1(fc)), side="right")
+                                        (1-assump.BETA1(fc)), side="right")
 
 
-def calc_pressure_region(section: Polygon, fc: np.float32, c: float, angle: float) -> Polygon:
+def calc_pressure_region(section: Polygon, fc: np.float32, c: np.float32, angle: np.float32) -> Polygon:
     """calculate pressure region based on ACI code
 
     Args:
@@ -327,8 +327,8 @@ def calc_pressure_region(section: Polygon, fc: np.float32, c: float, angle: floa
     c = correct_c(c)
     rot_section = rotate_section(section, angle) if angle!=0 else section
     minx, _, maxx, maxy = rot_section.bounds
-    top_area = Polygon([(maxx+10, maxy), (maxx+10, maxy-(0.85*c)), 
-                      (minx-10, maxy-(0.85*c)), (minx-10, maxy)]) 
+    top_area = Polygon([(maxx+10, maxy), (maxx+10, maxy-(0.85*c)),  # type: ignore
+                      (minx-10, maxy-(0.85*c)), (minx-10, maxy)])  # type: ignore
     pressure_line = calc_pressure_axis(section, fc, c, angle)
     unioned = rot_section.boundary.union(pressure_line)
     pressure_region = [poly for poly in polygonize(unioned) if \
@@ -336,7 +336,7 @@ def calc_pressure_region(section: Polygon, fc: np.float32, c: float, angle: floa
     return pressure_region[0]
 
 
-def calc_es(section: Polygon, coords:NDArray[Point], c: float, angle: float) -> NDArray[np.float32]:
+def calc_es(section: Polygon, coords:NDArray[Point], c: np.float32, angle: np.float32) -> NDArray[np.float32]:
     """calculate strain of rebars for rotated section
 
     Args:
@@ -353,11 +353,11 @@ def calc_es(section: Polygon, coords:NDArray[Point], c: float, angle: float) -> 
     max_pressure_point = calc_max_pressure_point(section, c, angle)
     neutral_region = calc_neutral_region(section, c, angle)
     es_sign = np.array([1 if neutral_region.contains(point) else -1 for point in rot_coords])
-    return np.array([((es_sign[i]*neutral_line.distance(rot_coords[i]))/max_pressure_point)*assump.ecu \
+    return np.array([((es_sign[i]*neutral_line.distance(rot_coords[i]))/max_pressure_point)*assump.ECU \
         for i in range(len(rot_coords))])
 
 
-def calc_ec(section: Polygon, c: float, angle: float, point: Point) -> np.float32:
+def calc_ec(section: Polygon, c: np.float32, angle: np.float32, point: Point) -> np.float32:
     """calculate strain of concrete for each point on section
 
     Args:
@@ -373,10 +373,10 @@ def calc_ec(section: Polygon, c: float, angle: float, point: Point) -> np.float3
     max_pressure_point = calc_max_pressure_point(section, c, angle)
     neutral_region = calc_neutral_region(section, c, angle)
     ec_sign = 1 if neutral_region.contains(point) else -1
-    return ((ec_sign * neutral_line.distance(point))/max_pressure_point)*assump.ecu
+    return ((ec_sign * neutral_line.distance(point))/max_pressure_point)*assump.ECU
 
 
-def calc_fs(data: DesignData, c: float, angle: float) -> NDArray[np.float32]:
+def calc_fs(data: DesignData, c: np.float32, angle: np.float32) -> NDArray[np.float32]:
     """calculate stress for each rebar for rotated section
 
     Args:
@@ -392,7 +392,7 @@ def calc_fs(data: DesignData, c: float, angle: float) -> NDArray[np.float32]:
     return np.copysign(fs, es)
 
 
-def calc_Fs(data: DesignData, c: float, angle: float) -> NDArray[np.float32]:
+def calc_Fs(data: DesignData, c: np.float32, angle: np.float32) -> NDArray[np.float32]:
     """calculate force for each rebar for rotated section
 
     Args:
@@ -407,18 +407,18 @@ def calc_Fs(data: DesignData, c: float, angle: float) -> NDArray[np.float32]:
     return np.where(data.As*fs <= 0, data.As*fs, data.As*(fs-0.85*data.fc))
 
 
-def calc_Cc(data: DesignData, c: float, angle: float) -> np.float32:
+def calc_Cc(data: DesignData, c: np.float32, angle: np.float32) -> np.float32:
     return 0.85 * data.fc * calc_pressure_region(data.section, data.fc, c, angle).area
 
 
-def calc_Fsz(data: DesignData, c: float, angle: float) -> Tuple[np.float32, np.float32]:
+def calc_Fsz(data: DesignData, c: np.float32, angle: np.float32) -> Tuple[np.float32, np.float32]:
     Fs = calc_Fs(data, c, angle)
     xCoords = np.array([point.x for point in data.Coords])
     yCoords = np.array([point.y for point in data.Coords])
     return np.sum(Fs * xCoords), np.sum(Fs * yCoords)
 
 
-def calc_M(data: DesignData, c: float, angle: float, IsPhi: bool = True) \
+def calc_M(data: DesignData, c: np.float32, angle: np.float32, IsPhi: bool = True) \
         -> Tuple[np.float32, np.float32, np.float32]:
     signX = 1 if (0<=angle<=90) or (270<=angle<=360) else -1
     signY = 1 if (0<=angle<=180) else -1
@@ -429,40 +429,40 @@ def calc_M(data: DesignData, c: float, angle: float, IsPhi: bool = True) \
     zcy = abs(rot_pressure_region.centroid.y)
     zcx = abs(rot_pressure_region.centroid.x)
     es = calc_es(data.section, data.Coords, c, angle)
-    phi = assump.phif(data.fy, data.Es, min(es))
+    phi = assump.PHI_MOMENT_AXIAL(data.fy, data.Es, min(es))
     Mx = phi*(Cc*zcy + abs(Fszy)) if IsPhi else Cc*zcy + abs(Fszy)
     My = phi*(Cc*zcx + abs(Fszx)) if IsPhi else Cc*zcx + abs(Fszx)
     M = pow(Mx**2+My**2, 0.5)
     return M, signX*Mx, signY*My
 
 
-def calc_P(data: DesignData, c: float, angle: float, IsPhi: bool = True) -> np.float32:
+def calc_P(data: DesignData, c: np.float32, angle: np.float32, IsPhi: bool = True) -> np.float32:
     Fs = calc_Fs(data, c, angle)
     Cc = calc_Cc(data, c, angle) 
     es = calc_es(data.section, data.Coords, c, angle)
-    phi = assump.phif(data.fy, data.Es, min(es))
+    phi = assump.PHI_MOMENT_AXIAL(data.fy, data.Es, min(es))
     _P = phi*(Cc+sum(Fs)) if IsPhi else Cc+sum(Fs)
     return _P
 
 
-def calc_c_max(data: DesignData, angle: float) -> np.float32:
+def calc_c_max(data: DesignData, angle: np.float32) -> np.float32:
     ety = data.fy / data.Es
     rot_section = rotate_section(data.section, angle)
     _, _, _, maxy = rot_section.bounds
     rot_Coords = rotate_rebar_coords(data.Coords, angle)
     miny_rebar = np.min([point.y for point in rot_Coords])
     dt = maxy - miny_rebar
-    return dt / (1-(ety/assump.ecu))
+    return dt / (1-(ety/assump.ECU))
 
 
-def calc_c(data: DesignData, P: float, angle: float) -> float:
+def calc_c(data: DesignData, P: np.float32, angle: np.float32) -> np.float32:
     def _optim_c(x):
         return calc_P(data, x, angle) - P
     c_max = calc_c_max(data, angle)
     return root_scalar(_optim_c, bracket=[0.0001, c_max]).root
 
 
-def calc_Pc_list(data: DesignData, angle: float, num: int=20, is_phi: bool=True) \
+def calc_Pc_list(data: DesignData, angle: np.float32, num: int=20, is_phi: bool=True) \
         -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
     c_max = calc_c_max(data, angle)
     c_list = np.linspace(1e-6, c_max, num=num, dtype=np.float32)
@@ -470,7 +470,7 @@ def calc_Pc_list(data: DesignData, angle: float, num: int=20, is_phi: bool=True)
     return P_list, c_list
 
 
-def calc_PM_list(data: DesignData, angle: float, num: int=20, is_phi: bool=True) \
+def calc_PM_list(data: DesignData, angle: np.float32, num: int=20, is_phi: bool=True) \
         -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
     P_list, c_list = calc_Pc_list(data, angle, num, is_phi)
     M_list = np.array([calc_M(data, _c, angle, is_phi) for _c in c_list], dtype=np.float32)
@@ -478,19 +478,20 @@ def calc_PM_list(data: DesignData, angle: float, num: int=20, is_phi: bool=True)
     return P_list, M_list
 
 
-def calc_Mn(data: DesignData, P: float, angle: float) -> Tuple[np.float32, np.float32, np.float32]:
+def calc_Mn(data: DesignData, P: np.float32, angle: np.float32) -> Tuple[np.float32, np.float32, np.float32]:
     c = calc_c(data, P, angle)
     return calc_M(data, c, angle)
 
 
-def calc_M_max(data: DesignData, angle: float) -> np.float32:
+def calc_M_max(data: DesignData, angle: np.float32) -> np.float32:
     _, M_list = calc_PM_list(data, angle, num=50)
     return np.max(M_list[:,0])
 
 
-def calc_PM_ratio(data: DesignData, P: float, Mx: float, My: float, angle:float|None=None) -> np.float32:
+def calc_PM_ratio(data: DesignData, P: np.float32, Mx: np.float32, 
+                  My: np.float32, angle:np.float32|None=None) -> np.float32:
     _angle = angle if angle != None else calc_angle(data, P, Mx, My)
-    M = pow(Mx**2 + My**2, 0.5)
+    M = np.power(Mx**2+My**2, 0.5)
     e = M/P
     P_list, M_list = calc_PM_list(data, _angle)
     M_custom = np.max(M_list[:,0]) * 1.1
@@ -505,17 +506,17 @@ def calc_PM_ratio(data: DesignData, P: float, Mx: float, My: float, angle:float|
     return P/_P if P!=0 else M/_M
 
 
-def show_PMM_analysis_result(section: ConcreteSct, P: float, Mx: float, My: float):
+def show_PMM_analysis_result(section: ConcreteSct, P: np.float32, Mx: np.float32, My: np.float32):
     data = DesignData.fromSection(section)
     P0 = calc_phi_P0(data)
     Pn_max = calc_phi_Pn_max(data)
     Pnt_max = calc_phi_Pnt_max(data)
     _ratio = calc_PM_ratio(data, P, Mx, My)
-    _M = pow(Mx**2 + My**2, 0.5)
-    _angle = float(calc_angle(data, P, Mx, My))
+    _M = np.power(Mx**2 + My**2, 0.5)
+    _angle = calc_angle(data, P, Mx, My)
     M_max = calc_M_max(data, _angle)
     _alpha = calc_alpha(Mx, My)
-    _c = float(calc_c(data, P, _angle)) # type: ignore
+    _c = calc_c(data, P, _angle)
     _es = calc_es(data.section, data.Coords, _c, _angle)
     _fs = calc_fs(data, _c, _angle)
     _Fs = calc_Fs(data, _c, _angle)
@@ -524,12 +525,12 @@ def show_PMM_analysis_result(section: ConcreteSct, P: float, Mx: float, My: floa
     return PMMresults(P0, Pn_max, Pnt_max, M_max, _c, _angle, _alpha, _es, _fs, _Fs, _Cc, P, _M, Mx, My, _percent, "", _ratio) # type: ignore
 
 
-def calc_percent(data: DesignData, P: float, Mx: float, My: float) -> float:
+def calc_percent(data: DesignData, P: np.float32, Mx: np.float32, My: np.float32) -> float:
     angle = calc_angle(data, P, Mx, My)
     def _optim_percent(x):
         data_percent = set_As_percent(data, x)
         c = calc_c(data_percent, P, angle)
-        return calc_M(data_percent, c, angle)[0] - pow(Mx**2+My**2, 0.5)
+        return calc_M(data_percent, c, angle)[0] - np.power(Mx**2+My**2, 0.5)
     
     data_one_percent = set_As_percent(data, 1)
     data_eight_percent = set_As_percent(data, 8)
@@ -542,18 +543,18 @@ def calc_percent(data: DesignData, P: float, Mx: float, My: float) -> float:
     return output_percent
 
 
-def show_PMM_design_result(section: ConcreteSct, P: float, Mx: float, My: float):
+def show_PMM_design_result(section: ConcreteSct, P: np.float32, Mx: np.float32, My: np.float32):
     data = DesignData.fromSection(section)
     _percent = calc_percent(data, P, Mx, My)
-    data = set_As_percent(data, _percent) # type: ignore
-    angle = float(calc_angle(data,  P, Mx, My))
+    data = set_As_percent(data, _percent)
+    angle = calc_angle(data,  P, Mx, My)
     P0 = calc_phi_P0(data)
     Pn_max = calc_phi_Pn_max(data)
     Pnt_max = calc_phi_Pnt_max(data)
     M_max = calc_M_max(data, angle)
-    c = float(calc_c(data, P, angle))
+    c = calc_c(data, P, angle)
     _M, _Mx, _My = calc_M(data, c, angle)
-    alpha = calc_alpha(_Mx, _My) # type: ignore
+    alpha = calc_alpha(_Mx, _My)
     _es = calc_es(data.section, data.Coords, c, angle)
     _fs = calc_fs(data, c, angle)
     _Fs = calc_Fs(data, c, angle)
@@ -561,8 +562,8 @@ def show_PMM_design_result(section: ConcreteSct, P: float, Mx: float, My: float)
     return PMMresults(P0, Pn_max, Pnt_max, M_max, c, angle, alpha, _es, _fs, _Fs, _Cc, P, _M, Mx, My, _percent, "", 0) # type: ignore
 
 
-def show_PM_chart(data: DesignData, P: float, Mx: float, My: float, num:int=100) -> None:
-    M = pow(Mx**2 + My**2, 0.5)
+def show_PM_chart(data: DesignData, P: np.float32, Mx: np.float32, My: np.float32, num:int=100) -> None:
+    M = np.power(Mx**2 + My**2, 0.5)
     angle = calc_angle(data, P, Mx, My)
     P_phi_list, M_phi_list = calc_PM_list(data, angle, num, is_phi=True)
     P_list, M_list = calc_PM_list(data, angle, num, is_phi=False)
@@ -580,7 +581,7 @@ def show_PM_chart(data: DesignData, P: float, Mx: float, My: float, num:int=100)
     plt.show()
 
 
-def show_MM_chart(data:DesignData, P: float, Mx: float, My: float, num:int=40):
+def show_MM_chart(data:DesignData, P: np.float32, Mx: np.float32, My: np.float32, num:int=40):
     angle_list = np.linspace(0, 360, num)
     Mxy_list = np.array([calc_Mn(data, P, _angle) for _angle in angle_list])
     fig, axs = plt.subplots()
@@ -594,8 +595,8 @@ def show_MM_chart(data:DesignData, P: float, Mx: float, My: float, num:int=40):
     plt.show()
 
 
-def show_PM_percent_chart(data:DesignData, P: float, Mx: float, My: float, num:int=8):
-    M = pow(Mx**2 + My**2, 0.5)
+def show_PM_percent_chart(data:DesignData, P: np.float32, Mx: np.float32, My: np.float32, num:int=8):
+    M = np.power(Mx**2 + My**2, 0.5)
     angle = calc_angle(data, P, Mx, My)
     percent_list = np.linspace(1, 8, num=num)
     data_list = np.array([set_As_percent(data, percent) for percent in percent_list])
