@@ -3,7 +3,7 @@ from typing import Any, List, Tuple
 from matplotlib import pyplot as plt
 
 from shapely import Polygon, Point
-from shapely.plotting import plot_line, plot_points, plot_polygon
+from shapely.plotting import plot_points, plot_polygon
 
 from pycivil.materials import ConcreteMat, RebarMat, AIII, AII, C25
 from pycivil.sections.rebarSections import GRebars, Rebar, RebarCoords, ConfType, ConfRebars

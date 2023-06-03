@@ -12,12 +12,14 @@ from shapely.plotting import plot_polygon, plot_line, plot_points
 d20 = Rsct.d20
 
 sct = RectConcreteSct(b=500, h=700)
-sct.rebarCoords = Rsct.RectRebarsSct(sct.section, 5, 4, d20, 50)
+# sct.rebarCoords = Rsct.RectRebarsSct(sct.section, 5, 4, d20, 50)
+
 data = props.DesignData.fromSection(sct)
 # PMManalysis.show_PM_chart(data, 3e6, 2e8, 1e8)
 # PMManalysis.show_MM_chart(data, 3e6, 2e8, 1e8)
 # PMManalysis.show_PM_percent_chart(data, 3e6, 2e8, 1e8)
-print(PMManalysis.show_PMM_design_result(sct, 3e6, 2e8, 1e8))
+# print(PMManalysis.show_PMM_design_result(sct, 3e6, 2e8, 1e8))
+PMManalysis.set_As(data, [100, 100, 100])
 
 
 

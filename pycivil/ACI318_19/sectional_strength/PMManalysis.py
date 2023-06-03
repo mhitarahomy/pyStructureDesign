@@ -11,12 +11,14 @@ from shapely.ops import polygonize
 from scipy.optimize import root_scalar
 
 from pycivil.ACI318_19.designProps import DesignData, PMMresults
+from pycivil.errors import RebarCoordsError, OptimizationError
 import pycivil.ACI318_19.assumptions as assump
 from pycivil.sections.concreteSections import ConcreteSct
+from pycivil.sections.rebarSections import ConfType
 
 
 def set_As(data: DesignData, As: NDArray[np.float32]) -> DesignData:
-    """create design data with new array of rebar area
+    """create design data with new array of rebars area.
 
     Args:
         data (DesignData): design data
@@ -25,6 +27,9 @@ def set_As(data: DesignData, As: NDArray[np.float32]) -> DesignData:
     Returns:
         DesignData: design data
     """
+    if len(data.As) == 0: raise RebarCoordsError(
+        "list of rebars area is empty. you must add rebar to section.")
+    if len(data.As) != len(As): raise ValueError("length of As must be same as design data As.")
     return DesignData(section=data.section, bw=data.bw, fy= data.fy, 
                       fyt=data.fyt, fc=data.fc, Coords=data.Coords, As=As,
                       Es=data.Es, Av=data.Av, conf_dist=data.conf_dist, 
@@ -40,6 +45,8 @@ def get_As_percent(data: DesignData) -> np.float32:
     Returns:
         np.float32: percent, %
     """
+    if len(data.As) == 0: raise RebarCoordsError(
+        "list of rebars area is empty. you must add rebar to section.")
     return (np.sum(data.As)/data.section.area)*100
 
 
@@ -53,6 +60,8 @@ def set_As_percent(data: DesignData, percent: float) -> DesignData:
     Returns:
         DesignData: new design data
     """
+    if len(data.As) == 0: raise RebarCoordsError(
+        "list of rebars area is empty. you must add rebar to section.")
     totalAs = data.section.area * (percent/100)
     return set_As(data, np.array([totalAs/ len(data.As) for i in range(len(data.As))]))
 
@@ -67,6 +76,8 @@ def calc_P0(data: DesignData) -> np.float32:
     Returns:
         np.float32: nominal axial strength at zero eccentricity, N 
     """
+    if len(data.As) == 0: raise RebarCoordsError(
+        "list of rebars area is empty. you must add rebar to section.")
     return (0.85 * data.fc * (data.section.area - sum(data.As)))\
                    + (sum(data.As)*data.fy)
 
@@ -82,7 +93,9 @@ def calc_phi_P0(data: DesignData) -> np.float32:
         np.float32: nominal axial strength at zero eccentricity 
         considering to strength reduction factor, N
     """
-    return 0.65 * calc_P0(data)
+    if len(data.As) == 0: raise RebarCoordsError(
+        "list of rebars area is empty. you must add rebar to section.")
+    return assump.PHI_MOMENT_AXIAL_MIN * calc_P0(data)
 
 
 def calc_Pn_max(data: DesignData) -> np.float32:
@@ -95,7 +108,10 @@ def calc_Pn_max(data: DesignData) -> np.float32:
     Returns:
         np.float32: maximum nominal axial compressive strength of a member, N
     """
-    return 0.8 * calc_P0(data)
+    if len(data.As) == 0: raise RebarCoordsError(
+        "list of rebars area is empty. you must add rebar to section.")
+    P0 = calc_P0(data)
+    return 0.8 * P0 if data.conf_type==ConfType.Tie else 0.85 * P0
 
 
 def calc_phi_Pn_max(data: DesignData) -> np.float32:
@@ -109,7 +125,10 @@ def calc_phi_Pn_max(data: DesignData) -> np.float32:
         np.float32: maximum nominal axial compressive strength of a member 
         considering to strength reduction factor, N
     """
-    return 0.65 * 0.8 * calc_P0(data)
+    if len(data.As) == 0: raise RebarCoordsError(
+        "list of rebars area is empty. you must add rebar to section.")
+    phi_P0 = assump.PHI_MOMENT_AXIAL_MIN * calc_P0(data)
+    return 0.8 * phi_P0 if data.conf_type==ConfType.Tie else 0.85 * phi_P0
 
 
 def calc_Pnt_max(data: DesignData) -> np.float32:
@@ -122,7 +141,9 @@ def calc_Pnt_max(data: DesignData) -> np.float32:
     Returns:
         np.float32: maximum nominal axial compressive strength of a member, N
     """
-    return -0.9 * (sum(data.As) * data.fy)
+    if len(data.As) == 0: raise RebarCoordsError(
+        "list of rebars area is empty. you must add rebar to section.")
+    return - sum(data.As) * data.fy
 
 
 def calc_phi_Pnt_max(data: DesignData) -> np.float32:
@@ -136,7 +157,9 @@ def calc_phi_Pnt_max(data: DesignData) -> np.float32:
         np.float32: maximum nominal axial compressive strength of a member 
         considering to strength reduction factor, N
     """
-    return -0.9 * (sum(data.As) * data.fy)
+    if len(data.As) == 0: raise RebarCoordsError(
+        "list of rebars area is empty. you must add rebar to section.")
+    return -assump.PHI_MOMENT_AXIAL_MAX * calc_Pnt_max(data)
 
 
 def calc_alpha(Mx: float, My: float) -> np.float32:
@@ -582,4 +605,3 @@ def show_PM_percent_chart(data:DesignData, P: float, Mx: float, My: float, num:i
     axs.axvline(x=0, color='k', linestyle='-')
     axs.grid(True)
     plt.show()
-
