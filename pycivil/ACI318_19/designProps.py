@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Tuple
 from pycivil.sections.concreteSections import ConcreteSct
 import numpy as np
 from numpy.typing import NDArray
@@ -14,12 +15,14 @@ class DesignData():
     fy: np.float32
     fyt: np.float32
     fc: np.float32
-    Coords: NDArray[Point]
+    coords: NDArray[Point]
     As: NDArray[np.float32]
     Av: NDArray[np.float32]
     conf_dist: np.float32
+    max_conf_rebar_size: np.float32
+    max_rebar_size: np.float32
     Es: np.float32
-    cover: np.float32
+    clear_cover: np.float32
     conf_type: ConfType
 
     @classmethod
@@ -31,9 +34,11 @@ def setDesignDataFromSection(sct: ConcreteSct) -> DesignData:
     return DesignData(
         section=sct.section, bw=np.float32(sct.bw), fy=np.float32(sct.lBarMat.fy), 
         fyt=np.float32(sct.cBarMat.fy),fc=np.float32(sct.concMat.fc), 
-        Coords=np.array(sct.Coords), As=np.array(sct.As, dtype=np.float32), 
-        Es=np.float32(sct.lBarMat.Es), cover=np.float32(sct.cover), Av=np.array(sct.Av, dtype=np.float32),
-        conf_type=sct.conf_type, conf_dist=np.float32(sct.conf_dist))
+        coords=np.array(sct.coords), As=np.array(sct.As, dtype=np.float32), 
+        Es=np.float32(sct.lBarMat.Es), clear_cover=np.float32(sct.clear_cover), 
+        Av=np.array(sct.Av, dtype=np.float32), conf_type=sct.conf_type, 
+        conf_dist=np.float32(sct.conf_dist), 
+        max_conf_rebar_size=np.float32(sct.max_conf_rebar_size), max_rebar_size=np.float32(sct.max_rebar_size))
 
 
 @dataclass

@@ -19,7 +19,6 @@ data = props.DesignData.fromSection(sct)
 # PMManalysis.show_MM_chart(data, 3e6, 2e8, 1e8)
 # PMManalysis.show_PM_percent_chart(data, 3e6, 2e8, 1e8)
 # print(PMManalysis.show_PMM_design_result(sct, 3e6, 2e8, 1e8))
-PMManalysis.set_As(data, [100, 100, 100])
 
 
 

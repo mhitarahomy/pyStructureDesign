@@ -50,7 +50,7 @@ def calc_Av_S(data: DesignData, Vu: float, *, Nu: float|None=None, rho: float|No
 def calc_conf_rebars_dist(data: DesignData, Vu: float, rebar:Rebar|GRebars, *, 
                           Nu: float|None=None, rho: float|None=None, d: float|None = None) -> float:
     Vc = calc_Vc(data, Nu=Nu, rho=rho, d=d)
-    return 0 if Vu<=0.5*assump.phis*Vc else round(rebar.Area/calc_Av_S(data, Vu, Nu=Nu, rho=rho, d=d))
+    return 0 if Vu<=0.5*assump.phis*Vc else round(rebar.area/calc_Av_S(data, Vu, Nu=Nu, rho=rho, d=d))
 
 
 def calc_Acp(data: DesignData) -> float:

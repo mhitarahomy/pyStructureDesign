@@ -43,9 +43,11 @@ def set_As(data: DesignData, As: NDArray[np.float32]) -> DesignData:
     check_As(data.As)
     if len(data.As) != len(As): raise ValueError("length of As must be same as design data As.")
     return DesignData(section=data.section, bw=data.bw, fy= data.fy, 
-                      fyt=data.fyt, fc=data.fc, Coords=data.Coords, As=As,
+                      fyt=data.fyt, fc=data.fc, coords=data.coords, As=As,
                       Es=data.Es, Av=data.Av, conf_dist=data.conf_dist, 
-                      cover=data.cover, conf_type=data.conf_type)
+                      clear_cover=data.clear_cover, conf_type=data.conf_type, 
+                      max_conf_rebar_size=data.max_conf_rebar_size,
+                      max_rebar_size=data.max_rebar_size)
 
 
 def get_As_percent(data: DesignData) -> np.float32:
@@ -387,7 +389,7 @@ def calc_fs(data: DesignData, c: np.float32, angle: np.float32) -> NDArray[np.fl
     Returns:
         NDArray[np.float32]: stress of rebars
     """
-    es = calc_es(data.section, data.Coords, c, angle)
+    es = calc_es(data.section, data.coords, c, angle)
     fs = np.minimum(np.abs(es) * data.Es, data.fy)
     return np.copysign(fs, es)
 
@@ -413,8 +415,8 @@ def calc_Cc(data: DesignData, c: np.float32, angle: np.float32) -> np.float32:
 
 def calc_Fsz(data: DesignData, c: np.float32, angle: np.float32) -> Tuple[np.float32, np.float32]:
     Fs = calc_Fs(data, c, angle)
-    xCoords = np.array([point.x for point in data.Coords])
-    yCoords = np.array([point.y for point in data.Coords])
+    xCoords = np.array([point.x for point in data.coords])
+    yCoords = np.array([point.y for point in data.coords])
     return np.sum(Fs * xCoords), np.sum(Fs * yCoords)
 
 
@@ -428,7 +430,7 @@ def calc_M(data: DesignData, c: np.float32, angle: np.float32, IsPhi: bool = Tru
     rot_pressure_region = rotate(Pr, angle, Point([0, 0])) if angle!=0 else Pr # [] TODO: check sign of angle rotation
     zcy = abs(rot_pressure_region.centroid.y)
     zcx = abs(rot_pressure_region.centroid.x)
-    es = calc_es(data.section, data.Coords, c, angle)
+    es = calc_es(data.section, data.coords, c, angle)
     phi = assump.PHI_MOMENT_AXIAL(data.fy, data.Es, min(es))
     Mx = phi*(Cc*zcy + abs(Fszy)) if IsPhi else Cc*zcy + abs(Fszy)
     My = phi*(Cc*zcx + abs(Fszx)) if IsPhi else Cc*zcx + abs(Fszx)
@@ -439,7 +441,7 @@ def calc_M(data: DesignData, c: np.float32, angle: np.float32, IsPhi: bool = Tru
 def calc_P(data: DesignData, c: np.float32, angle: np.float32, IsPhi: bool = True) -> np.float32:
     Fs = calc_Fs(data, c, angle)
     Cc = calc_Cc(data, c, angle) 
-    es = calc_es(data.section, data.Coords, c, angle)
+    es = calc_es(data.section, data.coords, c, angle)
     phi = assump.PHI_MOMENT_AXIAL(data.fy, data.Es, min(es))
     _P = phi*(Cc+sum(Fs)) if IsPhi else Cc+sum(Fs)
     return _P
@@ -449,7 +451,7 @@ def calc_c_max(data: DesignData, angle: np.float32) -> np.float32:
     ety = data.fy / data.Es
     rot_section = rotate_section(data.section, angle)
     _, _, _, maxy = rot_section.bounds
-    rot_Coords = rotate_rebar_coords(data.Coords, angle)
+    rot_Coords = rotate_rebar_coords(data.coords, angle)
     miny_rebar = np.min([point.y for point in rot_Coords])
     dt = maxy - miny_rebar
     return dt / (1-(ety/assump.ECU))
@@ -517,7 +519,7 @@ def show_PMM_analysis_result(section: ConcreteSct, P: np.float32, Mx: np.float32
     M_max = calc_M_max(data, _angle)
     _alpha = calc_alpha(Mx, My)
     _c = calc_c(data, P, _angle)
-    _es = calc_es(data.section, data.Coords, _c, _angle)
+    _es = calc_es(data.section, data.coords, _c, _angle)
     _fs = calc_fs(data, _c, _angle)
     _Fs = calc_Fs(data, _c, _angle)
     _Cc = calc_Cc(data, _c, _angle)
@@ -555,7 +557,7 @@ def show_PMM_design_result(section: ConcreteSct, P: np.float32, Mx: np.float32, 
     c = calc_c(data, P, angle)
     _M, _Mx, _My = calc_M(data, c, angle)
     alpha = calc_alpha(_Mx, _My)
-    _es = calc_es(data.section, data.Coords, c, angle)
+    _es = calc_es(data.section, data.coords, c, angle)
     _fs = calc_fs(data, c, angle)
     _Fs = calc_Fs(data, c, angle)
     _Cc = calc_Cc(data, c, angle)

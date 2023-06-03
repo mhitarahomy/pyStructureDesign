@@ -12,7 +12,7 @@ from pycivil.sections.section import Edge
 @dataclass
 class Rebar():
     d: float
-    Area = property(lambda self: CalcArea(self.d, 1))
+    area = property(lambda self: calc_area(self.d, 1))
 
     def __repr__(self) -> str:
         return f"\u03C6{self.d}"
@@ -30,7 +30,9 @@ class Rebar():
 @dataclass
 class GRebars():
     listOfRebars: dict[str, float]
-    Area = property(lambda self: CalcRebarsArea(**self.listOfRebars))
+    area = property(lambda self: calc_rebars_area(**self.listOfRebars))
+    d = property(lambda self: calc_d(self.area))
+
 
     def __repr__(self) -> str:
         rebarStr = ""
@@ -83,14 +85,17 @@ class RebarCoords():
 
 @dataclass
 class ConfRebars():
-    deistance: float
-    rebars: List[Rebar|GRebars]
+    distance: float
+    x_rebars: List[Rebar]
+    y_rebars: List[Rebar]
 
 
-CalcArea: Callable[[float, int], float] = lambda d, num=1: num * (pi*d**2)/4
+calc_area: Callable[[float, int], float] = lambda d, num=1: num * (pi*d**2)/4
+
+calc_d: Callable[[float], float] = lambda area: pow((4*area)/pi ,0.5)
 
 
-def CalcRebarsArea(**listOfRebars) -> float:
+def calc_rebars_area(**listOfRebars) -> float:
     """Calculate area of group rebars
 
     Returns
@@ -100,10 +105,10 @@ def CalcRebarsArea(**listOfRebars) -> float:
     """
     area: float = 0
     for k, v in list(listOfRebars.items()):
-        area += CalcArea(float(k), v)
+        area += calc_area(float(k), v)
     return round(area, 2)
 
-def CalcNumOfBars(area: float, bar: float) -> int:
+def calc_num_of_rebars(area: float, bar: float) -> int:
     """Calculate number of rebars with section bar that have 
     total As equal area
 

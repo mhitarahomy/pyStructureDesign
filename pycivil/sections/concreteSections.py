@@ -7,7 +7,7 @@ from shapely.plotting import plot_points, plot_polygon
 from pycivil.errors import RebarCoordsError, SectionError
 
 from pycivil.materials import ConcreteMat, RebarMat, AIII, AII, C25
-from pycivil.sections.rebarSections import GRebars, Rebar, RebarCoords, ConfType, ConfRebars
+from pycivil.sections.rebarSections import GRebars, Rebar, RebarCoords, ConfType, ConfRebars, d10
 import pycivil.sections.section as Sct 
 
 
@@ -16,7 +16,7 @@ ListOfPoints = List[Tuple[float, float]]
 C25def = lambda: C25
 AIIdef = lambda: AII
 AIIIdef = lambda: AIII
-ConfRebarsdef = lambda: ConfRebars(0, [])
+ConfRebarsdef = lambda: ConfRebars(200, [d10, d10], [d10, d10])
 
 
 @dataclass()
@@ -27,30 +27,39 @@ class ConcreteSct():
     concMat: ConcreteMat = field(default_factory=C25def)
     lBarMat: RebarMat = field(default_factory=AIIIdef)
     cBarMat: RebarMat = field(default_factory=AIIdef)
-    cover: float = field(default=70)
-    rebarCoords: List[RebarCoords] = field(default_factory=list)
+    clear_cover: float = field(default=50)
+    rebar_coords: List[RebarCoords] = field(default_factory=list)
     conf_rebars: ConfRebars = field(default_factory=ConfRebarsdef)
     conf_type: ConfType = field(default=ConfType.Tie)
     
     @property
-    def sectionCoords(self) -> ListOfPoints:
+    def section_coords(self) -> ListOfPoints:
         return list(self.section.exterior.coords)
     
     @property
-    def Coords(self) -> List[Point]:
-        return [rcoord.point for rcoord in self.rebarCoords]
+    def coords(self) -> List[Point]:
+        return [rcoord.point for rcoord in self.rebar_coords]
     
     @property
     def As(self) -> List[float]:
-        return [rcoord.rebar.Area for rcoord in self.rebarCoords]
+        return [rcoord.rebar.area for rcoord in self.rebar_coords]
     
     @property
-    def Av(self) -> List[float]:
-        return [rebar.Area for rebar in self.conf_rebars.rebars]
+    def Av(self) -> Tuple[float, float]:
+        return sum([rebar.area for rebar in self.conf_rebars.x_rebars]), \
+                sum([rebar.area for rebar in self.conf_rebars.y_rebars])
     
     @property
     def conf_dist(self) -> float:
-        return self.conf_rebars.deistance
+        return self.conf_rebars.distance
+    
+    @property
+    def max_conf_rebar_size(self) -> float:
+        return max([rebar.d for rebar in self.conf_rebars.y_rebars])
+    
+    @property
+    def max_rebar_size(self) -> float:
+        return max([rcoord.rebar.d for rcoord in self.rebar_coords])
 
 
 @dataclass()
@@ -196,10 +205,10 @@ def showSection(concSct: ConcreteSct) -> None:
     fig = plt.figure(dpi=90)
     ax = fig.add_subplot()  # type: ignore
     plot_polygon(concSct.section, add_points=False, linewidth=1)
-    if concSct.rebarCoords != None:
-        plot_points([Point(rcoord.point) for rcoord in concSct.rebarCoords], color='black')
-        for i in range(len(concSct.rebarCoords)):
-            rcoord = concSct.rebarCoords[i]
+    if concSct.rebar_coords != None:
+        plot_points([Point(rcoord.point) for rcoord in concSct.rebar_coords], color='black')
+        for i in range(len(concSct.rebar_coords)):
+            rcoord = concSct.rebar_coords[i]
             ax.annotate(f"{rcoord.rebar}\n{i}", xy=(rcoord.point.x, rcoord.point.y), xycoords='data',
                     xytext=(1.5, -10), textcoords='offset points')
     plt.show()
