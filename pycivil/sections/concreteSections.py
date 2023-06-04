@@ -7,7 +7,7 @@ from shapely.plotting import plot_points, plot_polygon
 from pycivil.errors import RebarCoordsError, SectionError
 
 from pycivil.materials import ConcreteMat, RebarMat, AIII, AII, C25
-from pycivil.sections.rebarSections import RebarCoords, ConfType, ConfRebars, d10
+from pycivil.sections.rebarSections import RebarCoords, ConfType, ConfRebars, d10, d20
 import pycivil.sections.section as Sct 
 
 
@@ -59,7 +59,8 @@ class ConcreteSct():
     
     @property
     def max_rebar_size(self) -> float:
-        return max([rcoord.rebar.d for rcoord in self.rebar_coords])
+        return max(*[rcoord.rebar.d for rcoord in self.rebar_coords]) if \
+            len(self.rebar_coords)!=0 else d20.d
 
 
 @dataclass()

@@ -20,13 +20,13 @@ class SectionType(StrEnum):
     Custom = auto()
 
 
-def moveCentroidToOrigin(section: Polygon) -> Polygon:
+def move_centroid_to_origin(section: Polygon) -> Polygon:
     return translate(section, -section.centroid.x, -section.centroid.y)
 
 
 def TriangleSct(b: float, h: float) -> Polygon:
     sct = Polygon([(0, h), (-b/2, 0), (b/2, 0)])
-    return moveCentroidToOrigin(sct)
+    return move_centroid_to_origin(sct)
 
 
 def RectangleSct(b: float, h: float) -> Polygon:
@@ -35,7 +35,7 @@ def RectangleSct(b: float, h: float) -> Polygon:
 
 def TrapzoidSct(b1: float, b2: float, h: float) -> Polygon:
     sct = Polygon([(b1/2, h/2), (-b1/2, h/2), (-b2/2, -h/2), (b2/2, -h/2)])
-    return moveCentroidToOrigin(sct)
+    return move_centroid_to_origin(sct)
 
 
 def TShapeSct(b: float, h: float, th1: float, tb1: float,
@@ -44,7 +44,19 @@ def TShapeSct(b: float, h: float, th1: float, tb1: float,
     th2 = th1 if th2 == None else th2
     sct = Polygon([(b/2, h), (-b/2, h), (-b/2, h-th1), (-tb2/2, h-th2),
                   (-tb1/2, 0), (tb1/2, 0), (tb2/2, h-th2), (b/2, h-th1), (b/2, h)])
-    return moveCentroidToOrigin(sct)
+    return move_centroid_to_origin(sct)
+
+
+def IShapeSct(b_top: float, t_top: float, c_top: float, h:float, tw: float, 
+              b_bot: float|None=None, t_bot: float|None=None, c_bot: float|None=None) -> Polygon:
+    b_bot = b_top if b_bot==None else b_bot
+    t_bot = t_top if t_bot==None else t_bot
+    c_bot = c_top if c_bot==None else c_bot
+    sct = Polygon([(b_top/2, h/2), (-b_top/2, h/2), (-b_top/2, h/2-t_top), (-tw/2, h/2-t_top-c_top),
+                   (-tw/2, -h/2+t_bot+c_bot), (-b_bot/2, -h/2+t_bot), (-b_bot/2, -h/2), (b_bot/2, -h/2),
+                   (b_bot/2, -h/2+t_bot), (tw/2, -h/2+t_bot+c_bot), (tw/2, h/2-t_top-c_top), (b_top/2, h/2-t_top),
+                   (b_top/2, h/2)])
+    return move_centroid_to_origin(sct)
 
 
 def LShapeSct(b: float, h: float, th1: float, tb1: float,
@@ -53,7 +65,7 @@ def LShapeSct(b: float, h: float, th1: float, tb1: float,
     th2 = th1 if th2 == None else th2
     sct = Polygon([(0, 0), (0, h), (b, h), (b, h-th1),
                   (tb2, h-th2), (tb1, 0), (0, 0)])
-    return moveCentroidToOrigin(sct)
+    return move_centroid_to_origin(sct)
 
 
 def BoxSct(b: float, h: float, th: float) -> Polygon:
@@ -84,10 +96,10 @@ def DistanceFrom(section: Polygon, dist: float, position: str="top") -> LineStri
         raise ValueError("distance is greater than height of shape.")
     if (position == "right" or position=="left") and (dist > maxx-minx):  # type: ignore
         raise ValueError("distance is greater than width of shape.")
-    line = LineString([(maxx+10, maxy-dist), (minx-10, maxy-dist)]) if position=="top" else\ # type: ignore
-            LineString([(maxx+10, miny+dist), (minx-10, miny+dist)]) if position=="bottom" else\ # type: ignore
-            LineString([(maxx-dist, maxy+10), (maxx-dist, miny-10)]) if position=="right" else\ # type: ignore
-            LineString([(minx+dist, maxy+10), (minx+dist, miny-10)]) if position=="left" else None # type: ignore
+    line = LineString([(maxx+10, maxy-dist), (minx-10, maxy-dist)]) if position=="top" else \
+               LineString([(maxx+10, miny+dist), (minx-10, miny+dist)]) if position=="bottom" else \
+               LineString([(maxx-dist, maxy+10), (maxx-dist, miny-10)]) if position=="right" else \
+               LineString([(minx+dist, maxy+10), (minx+dist, miny-10)]) if position=="left" else None 
     return section.intersection(line)
 
 
