@@ -122,8 +122,9 @@ def calc_c_max(data: DesignData) -> np.float32:
 def calc_c(data: DesignData) -> np.float32:
     def _optim_c(x):
         return calc_P(data, x)
-    c_max = calc_c_max(data)
-    return root_scalar(_optim_c, bracket=[0.0001, c_max]).root
+    _, miny, _, maxy = data.section.bounds
+    # c_max = calc_c_max(data)
+    return root_scalar(_optim_c, bracket=[0.0001, maxy-miny]).root
 
 
 def calc_Mn(data: DesignData) -> Tuple[np.float32, np.float32]:
