@@ -3,6 +3,7 @@ from typing import Tuple
 
 import numpy as np
 from numpy.typing import NDArray
+from shapely import Point
 
 from scipy.optimize import root_scalar
 
@@ -111,12 +112,37 @@ def calc_M(data: DesignData, c: np.float32, IsPhi: bool = True) -> Tuple[np.floa
 calc_P = partial(PMM.calc_P, angle=np.float32(0))
 
 
-def calc_c_max(data: DesignData) -> np.float32:
-    ety = data.fy / data.Es
-    _, _, _, maxy = data.section.bounds
-    miny_rebar = np.min([point.y for point in data.coords])
-    dt = maxy - miny_rebar
-    return dt / (1-(ety/assump.ECU))
+def calc_d(data: DesignData) -> float:
+    _, miny, _, maxy = data.section.bounds
+    return maxy-miny-data.clear_cover-data.max_conf_rebar_size-(data.max_rebar_size/2)
+
+
+def calc_As_c_max(data: DesignData, _d: float|None=None, use_shape: bool=False, As_interval:float = 50):
+    d = calc_d(data) if _d==None else _d
+    minx, _, maxx, maxy= data.section.bounds
+    _data = data
+    _data.coords=np.array([Point((maxx+minx)/2, maxy-d)])
+    _data.As = np.array([0])
+    As_list = np.array([], dtype=np.float32)
+    c_list = np.array([], dtype=np.float32)
+    _As = 1 
+    while True:
+        _data = set_As(_data, np.array([_As]))
+        _c = calc_c(_data)
+        if abs(np.min(calc_es(_data.section, _data.coords, _c))) < 0.005: break
+        print(abs(np.min(calc_es(_data.section, _data.coords, _c))))
+        As_list = np.append(As_list, _As)
+        c_list = np.append(c_list, _c)
+        _As += As_interval
+    return np.max(As_list), np.max(c_list)
+
+
+# def calc_c_max(data: DesignData) -> np.float32:
+#     ety = data.fy / data.Es
+#     _, _, _, maxy = data.section.bounds
+#     miny_rebar = np.min([point.y for point in data.coords])
+#     dt = maxy - miny_rebar
+#     return dt / (1-(ety/assump.ECU))
 
 
 def calc_c(data: DesignData) -> np.float32:
@@ -124,7 +150,7 @@ def calc_c(data: DesignData) -> np.float32:
         return calc_P(data, x)
     _, miny, _, maxy = data.section.bounds
     # c_max = calc_c_max(data)
-    return root_scalar(_optim_c, bracket=[0.0001, maxy-miny]).root
+    return root_scalar(_optim_c, bracket=[0.0001, 2*(maxy-miny)]).root
 
 
 def calc_Mn(data: DesignData) -> Tuple[np.float32, np.float32]:
