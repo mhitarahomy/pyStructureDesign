@@ -117,24 +117,28 @@ def calc_d(data: DesignData) -> float:
     return maxy-miny-data.clear_cover-data.max_conf_rebar_size-(data.max_rebar_size/2)
 
 
-def calc_As_c_max(data: DesignData, _d: float|None=None, use_shape: bool=False, As_interval:float = 50):
+def calc_As_max(data: DesignData, _d: float|None=None, As_interval:float = 50):
     d = calc_d(data) if _d==None else _d
     minx, _, maxx, maxy= data.section.bounds
     _data = data
     _data.coords=np.array([Point((maxx+minx)/2, maxy-d)])
     _data.As = np.array([0])
     As_list = np.array([], dtype=np.float32)
-    c_list = np.array([], dtype=np.float32)
+    # c_list = np.array([], dtype=np.float32)
     _As = 1 
     while True:
         _data = set_As(_data, np.array([_As]))
         _c = calc_c(_data)
         if abs(np.min(calc_es(_data.section, _data.coords, _c))) < 0.005: break
-        print(abs(np.min(calc_es(_data.section, _data.coords, _c))))
         As_list = np.append(As_list, _As)
-        c_list = np.append(c_list, _c)
+        # c_list = np.append(c_list, _c)
         _As += As_interval
-    return np.max(As_list), np.max(c_list)
+    return np.max(As_list)
+
+
+def calc_Mx_max(data: DesignData, _d: float|None=None):
+    As_max = calc_As_max(data, _d)
+    
 
 
 # def calc_c_max(data: DesignData) -> np.float32:
@@ -149,7 +153,6 @@ def calc_c(data: DesignData) -> np.float32:
     def _optim_c(x):
         return calc_P(data, x)
     _, miny, _, maxy = data.section.bounds
-    # c_max = calc_c_max(data)
     return root_scalar(_optim_c, bracket=[0.0001, 2*(maxy-miny)]).root
 
 
@@ -166,16 +169,31 @@ def calc_M_ratio(data: DesignData, Mux: np.float32) -> np.float32:
 
 
 # ! min and max reinforcement must add
-def calc_percent(data: DesignData, Mux: np.float32) -> np.float32: 
-    def _optim_percent(x):
-        data_percent = set_As_percent(data, x)
-        return calc_M_ratio(data_percent, Mux) - 1
-    data_one_percent = set_As_percent(data, 1)
-    data_eight_percent = set_As_percent(data, 8)
-    if calc_M_ratio(data_one_percent, Mux) <= 1: 
-        output_percent = 1
-    elif calc_M_ratio(data_eight_percent, Mux) > 1:
-        raise ValueError("section is weak")
-    else:
-        output_percent = root_scalar(_optim_percent, bracket=[1, 8]).root
-    return np.float32(output_percent)
+def calc_percent(data: DesignData, Mux: np.float32, _d: float|None=None) -> np.float32:
+    d = calc_d(data) if _d==None else _d
+    minx, _, maxx, maxy= data.section.bounds
+    _data = data
+    _data.coords=np.array([Point((maxx+minx)/2, maxy-d)])
+
+    def _optim_As(x):
+        __data = set_As(_data, np.array([x]))
+        return calc_M_ratio(__data, Mux) - 1
+
+    As_max, c_max = calc_As_c_max(data, _d)
+     
+
+
+
+    pass
+    # def _optim_percent(x):
+    #     data_percent = set_As_percent(data, x)
+    #     return calc_M_ratio(data_percent, Mux) - 1
+    # data_one_percent = set_As_percent(data, 1)
+    # data_eight_percent = set_As_percent(data, 8)
+    # if calc_M_ratio(data_one_percent, Mux) <= 1: 
+    #     output_percent = 1
+    # elif calc_M_ratio(data_eight_percent, Mux) > 1:
+    #     raise ValueError("section is weak")
+    # else:
+    #     output_percent = root_scalar(_optim_percent, bracket=[1, 8]).root
+    # return np.float32(output_percent)
