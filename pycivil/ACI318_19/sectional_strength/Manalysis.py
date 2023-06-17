@@ -19,16 +19,16 @@ def get_neg_design_data(data: DesignData) -> DesignData:
     return _data
 
 
-def calc_d(data: DesignData) -> float:
+def calc_d(data: DesignData) -> np.float32:
     _, miny, _, maxy = data.section.bounds
     return maxy-miny-data.clear_cover-data.max_conf_rebar_size-(data.max_rebar_size/2)
 
 
-def calc_dp(data: DesignData) -> float:
+def calc_dp(data: DesignData) -> np.float32:
     return data.clear_cover+data.max_conf_rebar_size+(data.max_rebar_size/2)
 
 
-def set_pos_As(data: DesignData, As: float, _d: float|None = None) -> DesignData:
+def set_pos_As(data: DesignData, As: np.float32, _d: np.float32|None = None) -> DesignData:
     d = calc_d(data) if _d==None else _d
     minx, _, maxx, maxy= data.section.bounds
     _data = data
@@ -37,7 +37,7 @@ def set_pos_As(data: DesignData, As: float, _d: float|None = None) -> DesignData
     return _data
 
 
-def set_neg_As(data: DesignData, As: float, _dp: float|None = None) -> DesignData:
+def set_neg_As(data: DesignData, As: np.float32, _dp: np.float32|None = None) -> DesignData:
     dp = calc_dp(data) if _dp==None else _dp
     minx, _, maxx, maxy= data.section.bounds
     _data = data
@@ -110,9 +110,9 @@ def calc_neg_c(data: DesignData) -> np.float32:
     return calc_pos_c(neg_data)
 
 
-def calc_As_pos_max(data: DesignData, _d: float|None=None, As_interval:float = 50):
+def calc_As_pos_max(data: DesignData, _d: np.float32|None=None, As_interval:float = 50):
     As_list = np.array([], dtype=np.float32)
-    _As = 1 
+    _As = np.float32(1) 
     while True:
         _data = set_pos_As(data, _As, _d)
         _c = calc_pos_c(_data)
@@ -122,9 +122,9 @@ def calc_As_pos_max(data: DesignData, _d: float|None=None, As_interval:float = 5
     return np.max(As_list)
 
 
-def calc_As_neg_max(data: DesignData, _dp: float|None=None, As_interval:float = 50):
+def calc_As_neg_max(data: DesignData, _dp: np.float32|None=None, As_interval:float = 50):
     As_list = np.array([], dtype=np.float32)
-    _As = 1
+    _As = np.float32(1)
     while True:
         _data = set_neg_As(data, _As, _dp)
         _c = calc_neg_c(_data)
@@ -134,7 +134,7 @@ def calc_As_neg_max(data: DesignData, _dp: float|None=None, As_interval:float = 
     return np.max(As_list)
 
 
-def calc_Mx_max(data: DesignData, _d: float|None=None, _dp: float|None=None) -> Tuple[np.float32, np.float32]:
+def calc_Mx_max(data: DesignData, _d: np.float32|None=None, _dp: np.float32|None=None) -> Tuple[np.float32, np.float32]:
     As_max_pos = calc_As_pos_max(data, _d)
     c_p_max = calc_pos_c(set_pos_As(data, As_max_pos, _d))
     As_max_neg = calc_As_neg_max(data, _dp)
@@ -154,7 +154,7 @@ def calc_M_ratio(data: DesignData, Mux: np.float32) -> np.float32:
     return Mux/Mn
 
 
-def calc_percent(data: DesignData, Mux: np.float32, _d: float|None=None) -> np.float32:
+def calc_percent(data: DesignData, Mux: np.float32, _d: np.float32|None=None) -> np.float32:
     def _optim_As(x):
         _data = set_pos_As(data, x, _d) if Mux>=0 else set_neg_As(data, x, _d)
         return calc_M_ratio(_data, Mux) - 1
@@ -163,5 +163,5 @@ def calc_percent(data: DesignData, Mux: np.float32, _d: float|None=None) -> np.f
     M_pos_max, M_neg_max = calc_Mx_max(data, _d, _d)
     M_max = M_pos_max if Mux>=0 else M_neg_max
     if Mux > M_max: raise Exception(f"Mu is greater than Mn max ({M_max}N.mm)")
-    output = root_scalar(_optim_As, bracket=[1, As_max])
-    return output.root
+    output = root_scalar(_optim_As, xtol=100, bracket=[1, As_max])
+    return output
